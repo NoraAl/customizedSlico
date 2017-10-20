@@ -1,0 +1,5 @@
+*.o
+*.dat
+.DS_Store
+.vscode
+build
