@@ -8,62 +8,75 @@ using namespace cv;
 using namespace cv::slicNora;
 using namespace std;
 
-static const char* window_name = "SLIC_NORA Superpixels";
+static const char *window_name = "Slic Superpixels";
 
-static const char* keys =
+static const char *keys =
     "{h help      | | help menu}"
     "{c camera    |0| camera id}"
     "{i image     | | image file}"
-    "{a algorithm |1| SLIC_NORA(0),SLIC_NORAO(1),MSLIC_NORA(2)}"
-    ;
+    "{v video     | | video file}"
+    "{a algorithm |1| Slic(0),Slico(1),MSlic(2)}";
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
-    CommandLineParser cmd(argc,argv,keys);
-    if (cmd.has("help")) {
-        cmd.about("This program demonstrates SLIC_NORA superpixels using OpenCV class SuperpixelSLIC_NORA.\n"
-            "If no image file is supplied, try to open a webcam.\n"
-            "Use [space] to toggle output mode, ['q' or 'Q' or 'esc'] to exit.\n");
+    CommandLineParser cmd(argc, argv, keys);
+    if (cmd.has("help"))
+    {
+        cmd.about("This program demonstrates Slic superpixels using OpenCV class SuperpixelSlic.\n"
+                  "If no image file is supplied, try to open a webcam.\n"
+                  "Use [space] to toggle output mode, ['q' or 'Q' or 'esc'] to exit.\n");
         cmd.printMessage();
         return 0;
     }
     int capture = cmd.get<int>("camera");
-    String img_file = cmd.get<String>("image");
+    String imgFile = cmd.get<String>("image");
+    String vidFile = cmd.get<String>("video");
     int algorithmy = cmd.get<int>("algorithm");
     int region_size = 50;
     int ruler = 30;
-    int min_element_size = 50;
+    int min_element_size = region_size;
     int num_iterations = 3;
-    bool use_video_capture = img_file.empty();
-    cout << "name["<<img_file<<"]\n";
+    bool noImage = imgFile.empty();
+    bool useCam = noImage && vidFile.empty();
+
     VideoCapture cap;
     Mat input_image;
 
-    if( use_video_capture )
+    if (useCam)
     {
-        if( !cap.open(capture) )
+        if (!cap.open(capture))
         {
-            cout << "Could not initialize capturing..."<<capture<<"\n";
+            cout << "Could not initialize capturing..." << capture << "\n";
             return -1;
         }
     }
+    // vid file
+    else if (noImage)
+    {
+        if (!cap.open(vidFile))
+        {
+            cout << "cannot open file: \"" << vidFile << "\" ." << endl;
+            return -1;
+        }
+    }
+
     else
     {
-        input_image = imread(img_file);
-        if( input_image.empty() )
+        input_image = imread(imgFile);
+        if (input_image.empty())
         {
-            
-            cout << "Could not open image..."<<img_file<<"\n";
+
+            cout << "Could not open image..." << imgFile << "\n";
             return -1;
         }
     }
 
     namedWindow(window_name, 0);
-    createTrackbar("Algorithm", window_name, &algorithmy, 2, 0);
-    createTrackbar("Region size", window_name, &region_size, 200, 0);
-    createTrackbar("Ruler", window_name, &ruler, 100, 0);
-    createTrackbar("Connectivity", window_name, &min_element_size, 100, 0);
-    createTrackbar("Iterations", window_name, &num_iterations, 12, 0);
+    // createTrackbar("Algorithm", window_name, &algorithmy, 2, 0);
+    // createTrackbar("Region size", window_name, &region_size, 200, 0);
+    // createTrackbar("Ruler", window_name, &ruler, 100, 0);
+    // createTrackbar("Connectivity", window_name, &min_element_size, 100, 0);
+    // createTrackbar("Iterations", window_name, &num_iterations, 12, 0);
 
     Mat result, mask;
     int display_mode = 0;
@@ -71,28 +84,32 @@ int main(int argc, char** argv)
     for (;;)
     {
         Mat frame;
-        if( use_video_capture )
-            cap >> frame;
-        else
+        if (!noImage)
             input_image.copyTo(frame);
+        else
+            cap >> frame;
 
-        if( frame.empty() )
+        if (frame.empty())
             break;
 
         result = frame;
         Mat converted;
-        cvtColor(frame, converted, COLOR_BGR2HSV);
+        //cvtColor(frame, converted, COLOR_BGR2HSV);/*HSV*/
+        //cvtColor(frame, converted, COLOR_BGR2Lab);/*LAB*/
+        cvtColor(frame, converted, COLOR_BGR2YUV );
+        
+        double t = (double)getTickCount();
 
-        double t = (double) getTickCount();
-
-        Ptr<SuperpixelSLIC_NORA> slic = createSuperpixelSLIC_NORA(converted,algorithmy+SLIC_NORA,region_size,float(ruler));
+        Ptr<SuperpixelSlic> slic = 
+        createSuperpixelSlic(converted, algorithmy + Slic, region_size, float(ruler));
+        
         slic->iterate(num_iterations);
-        if (min_element_size>0)
-        slic->enforceLabelConnectivity(min_element_size);
+        if (min_element_size > 0)
+            slic->enforceLabelConnectivity(min_element_size);
 
-        t = ((double) getTickCount() - t) / getTickFrequency();
-        cout << "SLIC_NORA" << (algorithmy?'O':' ')
-             << " segmentation took " << (int) (t * 1000)
+        t = ((double)getTickCount() - t) / getTickFrequency();
+        cout << "Slic" << (algorithmy ? 'O' : ' ')
+             << " segmentation took " << (int)(t * 1000)
              << " ms with " << slic->getNumberOfSuperpixels() << " superpixels" << endl;
 
         // get the contours for displaying
@@ -124,9 +141,9 @@ int main(int argc, char** argv)
         }
 
         int c = waitKey(1) & 0xff;
-        if( c == 'q' || c == 'Q' || c == 27 )
+        if (c == 'q' || c == 'Q' || c == 27)
             break;
-        else if( c == ' ' )
+        else if (c == ' ')
             display_mode = (display_mode + 1) % 3;
     }
 

@@ -9,10 +9,11 @@ Project directory:
 |   |   image2.jpg
 |   |   ..
 |   |   imageN.jpg
-+---build
+
 ```
 Within the directory:
 ```
+    mkdir build
     cd build
 ```
 Then:

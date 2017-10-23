@@ -1,12 +1,12 @@
 /*********************************************************************
  * Software License Agreement (BSD License)
  *
- * SLIC_NORA, SLIC_NORAO Copyright (c) 2013
+ * Slic, Slico Copyright (c) 2013
  * Radhakrishna Achanta
  * email : Radhakrishna [dot] Achanta [at] epfl [dot] ch
  * web : http://ivrl.epfl.ch/people/achanta
  *
- * MSLIC_NORA Copyright (c) 2016, 2017
+ * MSlic Copyright (c) 2016, 2017
  * Yong-Jin Liu
  * email : liuyongjin [at] tsinghua [dot] edu [dot] cn
  * web : http://47.89.51.189/liuyj
@@ -40,16 +40,16 @@
  *********************************************************************/
 
 /*
- "SLIC_NORA Superpixels Compared to State-of-the-art Superpixel Methods"
+ "Slic Superpixels Compared to State-of-the-art Superpixel Methods"
  Radhakrishna Achanta, Appu Shaji, Kevin Smith, Aurelien Lucchi, Pascal Fua,
  and Sabine Susstrunk, IEEE TPAMI, Volume 34, Issue 11, Pages 2274-2282,
  November 2012.
 
- "SLIC_NORA Superpixels" Radhakrishna Achanta, Appu Shaji, Kevin Smith,
+ "Slic Superpixels" Radhakrishna Achanta, Appu Shaji, Kevin Smith,
  Aurelien Lucchi, Pascal Fua, and Sabine Süsstrunk, EPFL Technical
  Report no. 149300, June 2010.
 
- "Intrinsic Manifold SLIC_NORA: A Simple and Efficient Method for Computing
+ "Intrinsic Manifold Slic: A Simple and Efficient Method for Computing
  Content-Sensitive Superpixels"
  Yong-Jin Liu, Cheng-Chi Yu, Min-Jing Yu, Ying He,
  IEEE Transactions on Pattern Analysis and Machine Intelligence,
@@ -66,13 +66,13 @@ using namespace std;
 namespace cv {
 namespace slicNora {
 
-class SuperpixelSLIC_NORAImpl : public SuperpixelSLIC_NORA
+class SlicImpl : public SuperpixelSlic
 {
 public:
 
-    SuperpixelSLIC_NORAImpl( InputArray image, int algorithm, int region_size, float ruler );
+    SlicImpl( InputArray image, int algorithm, int region_size, float ruler );
 
-    virtual ~SuperpixelSLIC_NORAImpl();
+    virtual ~SlicImpl();
 
     // perform amount of iteration
     virtual void iterate( int num_iterations = 10 );
@@ -93,27 +93,27 @@ public:
 protected:
 
     // image width
-    int m_width;
+    int widthImg;
 
     // image width
-    int m_height;
+    int heightImg;
 
     // image channels
-    int m_nr_channels;
+    int channelsNo;
 
     // algorithm
     int m_algorithm;
 
     // region size
-    int m_region_size;
+    int regionLength;
 
     // compactness
-    float m_ruler;
+    float compactness;
 
-    // ratio (MSLIC_NORA)
+    // ratio (MSlic)
     float m_ratio;
 
-    // split (MSLIC_NORA)
+    // split (MSlic)
     float m_split;
 
     // current iter
@@ -126,28 +126,28 @@ protected:
 private:
 
     // labels no
-    int m_numlabels;
+    int kSuperpixels;
 
     // stacked channels
     // of original image
-    vector<Mat> m_chvec;
+    vector<Mat> channels;
 
     // seeds on x
-    vector<float> m_kseedsx;
+    vector<float> seedsX;
 
     // seeds on y
-    vector<float> m_kseedsy;
+    vector<float> seedsY;
 
     // labels storage
-    Mat m_klabels;
+    Mat labels;
 
     // seeds storage
-    vector< vector<float> > m_kseeds;
+    vector< vector<float> > seedsC;
 
-    // adaptive k (MSLIC_NORA)
+    // adaptive k (MSlic)
     vector<float> m_adaptk;
 
-    // merge threshold (MSLIC_NORA)
+    // merge threshold (MSlic)
     float m_merge;
 
     // initialization
@@ -165,27 +165,27 @@ private:
     // fetch seeds
     inline void GetChSeedsK();
 
-    // SLIC_NORA
-    inline void PerformSLIC_NORA( const int& num_iterations );
+    // Slic
+    inline void PerformSlic( const int& num_iterations );
 
-    // SLIC_NORAO
-    inline void PerformSLIC_NORAO( const int& num_iterations );
+    // Slico
+    inline void PerformSlico( const int& num_iterations );
 
-    // MSLIC_NORA
-    inline void PerformMSLIC_NORA( const int& num_iterations );
+    // MSlic
+    inline void PerformMSlic( const int& num_iterations );
 
-    // MSLIC_NORA
+    // MSlic
     inline void SuperpixelSplit();
 
 };
 
-CV_EXPORTS Ptr<SuperpixelSLIC_NORA> createSuperpixelSLIC_NORA( InputArray image, int algorithm, int region_size, float ruler )
+CV_EXPORTS Ptr<SuperpixelSlic> createSuperpixelSlic( InputArray image, int algorithm, int region_size, float ruler )
 {
-    return makePtr<SuperpixelSLIC_NORAImpl>( image, algorithm, region_size, ruler );
+    return makePtr<SlicImpl>( image, algorithm, region_size, ruler );
 }
 
-SuperpixelSLIC_NORAImpl::SuperpixelSLIC_NORAImpl( InputArray _image, int _algorithm, int _region_size, float _ruler )
-                   : m_algorithm(_algorithm), m_region_size(_region_size), m_ruler(_ruler)
+SlicImpl::SlicImpl( InputArray _image, int _algorithm, int _region_size, float _ruler )
+                   : m_algorithm(_algorithm), regionLength(_region_size), compactness(_ruler)
 {
     if ( _image.isMat() )
     {
@@ -195,24 +195,25 @@ SuperpixelSLIC_NORAImpl::SuperpixelSLIC_NORAImpl( InputArray _image, int _algori
       CV_Assert( !image.empty() );
 
       // initialize sizes
-      m_width = image.size().width;
-      m_height = image.size().height;
-      m_nr_channels = image.channels();
+      widthImg = image.size().width;
+      heightImg = image.size().height;
+      channelsNo = image.channels();
 
       // intialize channels
-      split( image, m_chvec );
+      split( image, channels );
     }
     else if ( _image.isMatVector() )
     {
-      _image.getMatVector( m_chvec );
+      _image.getMatVector( channels );
 
       // array should be valid
-      CV_Assert( !m_chvec.empty() );
+      CV_Assert( !channels.empty() );
 
       // initialize sizes
-      m_width = m_chvec[0].size().width;
-      m_height = m_chvec[0].size().height;
-      m_nr_channels = (int) m_chvec.size();
+      widthImg = channels[0].size().width;
+      heightImg = channels[0].size().height;
+      channelsNo = (int) channels.size();
+      
     }
     else
       CV_Error( Error::StsInternal, "Invalid InputArray." );
@@ -221,34 +222,34 @@ SuperpixelSLIC_NORAImpl::SuperpixelSLIC_NORAImpl( InputArray _image, int _algori
     initialize();
 }
 
-SuperpixelSLIC_NORAImpl::~SuperpixelSLIC_NORAImpl()
+SlicImpl::~SlicImpl()
 {
-    m_chvec.clear();
-    m_kseeds.clear();
-    m_kseedsx.clear();
-    m_kseedsy.clear();
-    m_klabels.release();
+    channels.clear();
+    seedsC.clear();
+    seedsX.clear();
+    seedsY.clear();
+    labels.release();
 }
 
-int SuperpixelSLIC_NORAImpl::getNumberOfSuperpixels() const
+int SlicImpl::getNumberOfSuperpixels() const
 {
-    return m_numlabels;
+    return kSuperpixels;
 }
 
-void SuperpixelSLIC_NORAImpl::initialize()
+void SlicImpl::initialize()
 {
     // total amount of superpixels given its size as input
-    m_numlabels = int(float(m_width * m_height)
-                /  float(m_region_size * m_region_size));
+    kSuperpixels = int(float(widthImg * heightImg)
+                /  float(regionLength * regionLength));
 
     // initialize seed storage
-    m_kseeds.resize( m_nr_channels );
+    seedsC.resize( channelsNo );
 
     // intitialize label storage
-    m_klabels = Mat( m_height, m_width, CV_32S, Scalar::all(0) );
+    labels = Mat( heightImg, widthImg, CV_32S, Scalar::all(0) );
 
     // storage for edge magnitudes
-    Mat edgemag = Mat( m_height, m_width, CV_32F, Scalar::all(0) );
+    Mat edgemag = Mat( heightImg, widthImg, CV_32F, Scalar::all(0) );
 
     // perturb seeds is not absolutely necessary,
     // one can set this flag to false
@@ -256,58 +257,58 @@ void SuperpixelSLIC_NORAImpl::initialize()
 
     if ( perturbseeds ) DetectChEdges( edgemag );
 
-    if( m_algorithm == SLIC_NORAO )
+    if( m_algorithm == Slico )
       GetChSeedsK();
-    else if( ( m_algorithm == SLIC_NORA ) ||
-             ( m_algorithm == MSLIC_NORA ) )
+    else if( ( m_algorithm == Slic ) ||
+             ( m_algorithm == MSlic ) )
       GetChSeedsS();
     else
       CV_Error( Error::StsInternal, "No such algorithm" );
 
     // update amount of labels now
-    m_numlabels = (int)m_kseeds[0].size();
+    kSuperpixels = (int)seedsC[0].size();
 
     // perturb seeds given edges
     if ( perturbseeds ) PerturbSeeds( edgemag );
 
-    if( m_algorithm == MSLIC_NORA )
+    if( m_algorithm == MSlic )
     {
       m_merge = 4.0f;
-      m_adaptk.resize( m_numlabels, 1.0f );
+      m_adaptk.resize( kSuperpixels, 1.0f );
     }
 }
 
-void SuperpixelSLIC_NORAImpl::iterate( int num_iterations )
+void SlicImpl::iterate( int num_iterations )
 {
     // store total iterations
     m_iterations = num_iterations;
 
-    if( m_algorithm == SLIC_NORAO )
-      PerformSLIC_NORAO( num_iterations );
-    else if( m_algorithm == SLIC_NORA )
-      PerformSLIC_NORA( num_iterations );
-    else if( m_algorithm == MSLIC_NORA )
-      PerformMSLIC_NORA( num_iterations );
+    if( m_algorithm == Slico )
+      PerformSlico( num_iterations );
+    else if( m_algorithm == Slic )
+      PerformSlic( num_iterations );
+    else if( m_algorithm == MSlic )
+      PerformMSlic( num_iterations );
     else
       CV_Error( Error::StsInternal, "No such algorithm" );
 
     // re-update amount of labels
-    m_numlabels = (int)m_kseeds[0].size();
+    kSuperpixels = (int)seedsC[0].size();
 }
 
-void SuperpixelSLIC_NORAImpl::getLabels(OutputArray labels_out) const
+void SlicImpl::getLabels(OutputArray labels_out) const
 {
-    labels_out.assign( m_klabels );
+    labels_out.assign( labels );
 }
 
-void SuperpixelSLIC_NORAImpl::getLabelContourMask(OutputArray _mask, bool _thick_line) const
+void SlicImpl::getLabelContourMask(OutputArray _mask, bool _thick_line) const
 {
     // default width
     int line_width = 2;
 
     if ( !_thick_line ) line_width = 1;
 
-    _mask.create( m_height, m_width, CV_8UC1 );
+    _mask.create( heightImg, widthImg, CV_8UC1 );
     Mat mask = _mask.getMat();
 
     mask.setTo(0);
@@ -315,14 +316,14 @@ void SuperpixelSLIC_NORAImpl::getLabelContourMask(OutputArray _mask, bool _thick
     const int dx8[8] = { -1, -1,  0,  1, 1, 1, 0, -1 };
     const int dy8[8] = {  0, -1, -1, -1, 0, 1, 1,  1 };
 
-    int sz = m_width*m_height;
+    int sz = widthImg*heightImg;
 
     vector<bool> istaken(sz, false);
 
     int mainindex = 0;
-    for( int j = 0; j < m_height; j++ )
+    for( int j = 0; j < heightImg; j++ )
     {
-      for( int k = 0; k < m_width; k++ )
+      for( int k = 0; k < widthImg; k++ )
       {
         int np = 0;
         for( int i = 0; i < 8; i++ )
@@ -330,13 +331,13 @@ void SuperpixelSLIC_NORAImpl::getLabelContourMask(OutputArray _mask, bool _thick
           int x = k + dx8[i];
           int y = j + dy8[i];
 
-          if( (x >= 0 && x < m_width) && (y >= 0 && y < m_height) )
+          if( (x >= 0 && x < widthImg) && (y >= 0 && y < heightImg) )
           {
-            int index = y*m_width + x;
+            int index = y*widthImg + x;
 
             if( false == istaken[index] )
             {
-              if( m_klabels.at<int>(j,k) != m_klabels.at<int>(y,x) ) np++;
+              if( labels.at<int>(j,k) != labels.at<int>(y,x) ) np++;
             }
           }
         }
@@ -358,15 +359,15 @@ void SuperpixelSLIC_NORAImpl::getLabelContourMask(OutputArray _mask, bool _thick
  *      adjacent label to this component, and not incrementing the label.
  *
  */
-void SuperpixelSLIC_NORAImpl::enforceLabelConnectivity( int min_element_size )
+void SlicImpl::enforceLabelConnectivity( int min_element_size )
 {
 
     if ( min_element_size == 0 ) return;
     CV_Assert( min_element_size >= 0 && min_element_size <= 100 );
 
-    vector<float> adaptk( m_numlabels, 1.0f );
+    vector<float> adaptk( kSuperpixels, 1.0f );
 
-    if( m_algorithm == MSLIC_NORA )
+    if( m_algorithm == MSlic )
     {
       adaptk.clear();
     }
@@ -374,38 +375,38 @@ void SuperpixelSLIC_NORAImpl::enforceLabelConnectivity( int min_element_size )
     const int dx4[4] = { -1,  0,  1,  0 };
     const int dy4[4] = {  0, -1,  0,  1 };
 
-    const int sz = m_width * m_height;
-    const int supsz = sz / m_numlabels;
+    const int sz = widthImg * heightImg;
+    const int supsz = sz / kSuperpixels;
 
     int div = int(100.0f/(float)min_element_size + 0.5f);
     int min_sp_sz = max(3, supsz / div);
 
-    Mat nlabels( m_height, m_width, CV_32S, Scalar(INT_MAX) );
+    Mat nlabels( heightImg, widthImg, CV_32S, Scalar(INT_MAX) );
 
     int label = 0;
     vector<int> xvec(sz);
     vector<int> yvec(sz);
 
-    // MSLIC_NORA
+    // MSlic
     int currentlabel;
     float diffch = 0.0f;
     vector<float> adjch;
     vector<float> curch;
     map<int,int> hashtable;
 
-    if( m_algorithm == MSLIC_NORA )
+    if( m_algorithm == MSlic )
     {
       hashtable[-1] = 0;
-      adjch.resize( m_nr_channels, 0 );
-      curch.resize( m_nr_channels, 0 );
+      adjch.resize( channelsNo, 0 );
+      curch.resize( channelsNo, 0 );
     }
 
     //adjacent label
     int adjlabel = 0;
 
-    for( int j = 0; j < m_height; j++ )
+    for( int j = 0; j < heightImg; j++ )
     {
-        for( int k = 0; k < m_width; k++ )
+        for( int k = 0; k < widthImg; k++ )
         {
             if( nlabels.at<int>(j,k) == INT_MAX )
             {
@@ -415,7 +416,7 @@ void SuperpixelSLIC_NORAImpl::enforceLabelConnectivity( int min_element_size )
                 //--------------------
                 xvec[0] = k;
                 yvec[0] = j;
-                currentlabel = m_klabels.at<int>(j,k);
+                currentlabel = labels.at<int>(j,k);
                 //-------------------------------------------------------
                 // Quickly find an adjacent label for use later if needed
                 //-------------------------------------------------------
@@ -423,28 +424,28 @@ void SuperpixelSLIC_NORAImpl::enforceLabelConnectivity( int min_element_size )
                 {
                     int x = xvec[0] + dx4[n];
                     int y = yvec[0] + dy4[n];
-                    if( (x >= 0 && x < m_width) && (y >= 0 && y < m_height) )
+                    if( (x >= 0 && x < widthImg) && (y >= 0 && y < heightImg) )
                     {
                         if( nlabels.at<int>(y,x) != INT_MAX )
                         {
                             adjlabel = nlabels.at<int>(y,x);
-                            if( m_algorithm == MSLIC_NORA )
+                            if( m_algorithm == MSlic )
                             {
-                                for( int b = 0; b < m_nr_channels; b++ )
+                                for( int b = 0; b < channelsNo; b++ )
                                 {
-                                  adjch[b] = m_kseeds[b][m_klabels.at<int>(y,x)];
+                                  adjch[b] = seedsC[b][labels.at<int>(y,x)];
                                 }
                             }
                         }
                     }
                 }
 
-                if( m_algorithm == MSLIC_NORA )
+                if( m_algorithm == MSlic )
                 {
                     float ssumch = 0.0f;
-                    for( int b = 0; b < m_nr_channels; b++ )
+                    for( int b = 0; b < channelsNo; b++ )
                     {
-                        curch[b] = m_kseeds[b][m_klabels.at<int>(j,k)];
+                        curch[b] = seedsC[b][labels.at<int>(j,k)];
                         // squared distance
                         float diff = curch[b] - adjch[b];
                         ssumch += diff * diff;
@@ -462,10 +463,10 @@ void SuperpixelSLIC_NORAImpl::enforceLabelConnectivity( int min_element_size )
                         int x = xvec[c] + dx4[n];
                         int y = yvec[c] + dy4[n];
 
-                        if( (x >= 0 && x < m_width) && (y >= 0 && y < m_height) )
+                        if( (x >= 0 && x < widthImg) && (y >= 0 && y < heightImg) )
                         {
                             if( INT_MAX == nlabels.at<int>(y,x) &&
-                                m_klabels.at<int>(j,k) == m_klabels.at<int>(y,x) )
+                                labels.at<int>(j,k) == labels.at<int>(y,x) )
                             {
                                 xvec[count] = x;
                                 yvec[count] = y;
@@ -475,8 +476,8 @@ void SuperpixelSLIC_NORAImpl::enforceLabelConnectivity( int min_element_size )
                         }
                     }
                 }
-                // MSLIC_NORA only
-                if( m_algorithm == MSLIC_NORA )
+                // MSlic only
+                if( m_algorithm == MSlic )
                 {
                   if ( m_cur_iter < m_iterations - 1 )
                   {
@@ -490,13 +491,13 @@ void SuperpixelSLIC_NORAImpl::enforceLabelConnectivity( int min_element_size )
                           (
                             ( diffch < m_merge ) &&
                             ( hashtable[adjlabel] + hashtable[(int)adaptk.size()-1]
-                           <= 3 * m_region_size * m_region_size )
+                           <= 3 * regionLength * regionLength )
                           )
                         )
                       {
                           if( ( diffch < m_merge) &&
                               ( hashtable[adjlabel] + hashtable[(int)adaptk.size()-1]
-                             <= 3 * m_region_size * m_region_size )
+                             <= 3 * regionLength * regionLength )
                             )
                           {
                               adaptk[adjlabel] = min( 2.0f, float(adaptk[adjlabel] + adaptk[(int)adaptk.size()-1]) );
@@ -526,7 +527,7 @@ void SuperpixelSLIC_NORAImpl::enforceLabelConnectivity( int min_element_size )
                           label--;
                       }
                   }
-                // SLIC_NORA or SLIC_NORAO
+                // Slic or Slico
                 } else
                 {
                   //-------------------------------------------------------
@@ -547,8 +548,8 @@ void SuperpixelSLIC_NORAImpl::enforceLabelConnectivity( int min_element_size )
         }
     }
     // replace old
-    m_klabels = nlabels;
-    m_numlabels = label;
+    labels = nlabels;
+    kSuperpixels = label;
 
     m_adaptk.clear();
     m_adaptk = adaptk;
@@ -557,16 +558,16 @@ void SuperpixelSLIC_NORAImpl::enforceLabelConnectivity( int min_element_size )
 /*
  * DetectChEdges
  */
-inline void SuperpixelSLIC_NORAImpl::DetectChEdges( Mat &edgemag )
+inline void SlicImpl::DetectChEdges( Mat &edgemag )
 {
     Mat dx, dy;
     Mat S_dx, S_dy;
 
-    for (int c = 0; c < m_nr_channels; c++)
+    for (int c = 0; c < channelsNo; c++)
     {
         // derivate
-        Sobel( m_chvec[c], dx, CV_32F, 1, 0, 1, 1.0f, 0.0f, BORDER_DEFAULT );
-        Sobel( m_chvec[c], dy, CV_32F, 0, 1, 1, 1.0f, 0.0f, BORDER_DEFAULT );
+        Sobel( channels[c], dx, CV_32F, 1, 0, 1, 1.0f, 0.0f, BORDER_DEFAULT );
+        Sobel( channels[c], dy, CV_32F, 0, 1, 1, 1.0f, 0.0f, BORDER_DEFAULT );
 
         // acumulate ^2 derivate
         S_dx = S_dx + dx.mul(dx);
@@ -580,15 +581,15 @@ inline void SuperpixelSLIC_NORAImpl::DetectChEdges( Mat &edgemag )
 /*
  * PerturbSeeds
  */
-inline void SuperpixelSLIC_NORAImpl::PerturbSeeds( const Mat& edgemag )
+inline void SlicImpl::PerturbSeeds( const Mat& edgemag )
 {
     const int dx8[8] = { -1, -1,  0,  1,  1,  1,  0, -1 };
     const int dy8[8] = {  0, -1, -1, -1,  0,  1,  1,  1 };
 
-    for( int n = 0; n < m_numlabels; n++ )
+    for( int n = 0; n < kSuperpixels; n++ )
     {
-        int ox = (int)m_kseedsx[n]; //original x
-        int oy = (int)m_kseedsy[n]; //original y
+        int ox = (int)seedsX[n]; //original x
+        int oy = (int)seedsY[n]; //original y
 
         int storex = ox;
         int storey = oy;
@@ -597,7 +598,7 @@ inline void SuperpixelSLIC_NORAImpl::PerturbSeeds( const Mat& edgemag )
             int nx = ox + dx8[i]; //new x
             int ny = oy + dy8[i]; //new y
 
-            if( nx >= 0 && nx < m_width && ny >= 0 && ny < m_height)
+            if( nx >= 0 && nx < widthImg && ny >= 0 && ny < heightImg)
             {
                 if( edgemag.at<float>(ny,nx) < edgemag.at<float>(storey,storex) )
                 {
@@ -608,44 +609,44 @@ inline void SuperpixelSLIC_NORAImpl::PerturbSeeds( const Mat& edgemag )
         }
         if( storex != ox && storey != oy )
         {
-            m_kseedsx[n] = (float)storex;
-            m_kseedsy[n] = (float)storey;
+            seedsX[n] = (float)storex;
+            seedsY[n] = (float)storey;
 
-            switch ( m_chvec[0].depth() )
+            switch ( channels[0].depth() )
             {
               case CV_8U:
-                for( int b = 0; b < m_nr_channels; b++ )
-                  m_kseeds[b][n] = m_chvec[b].at<uchar>( storey, storex );
+                for( int b = 0; b < channelsNo; b++ )
+                  seedsC[b][n] = channels[b].at<uchar>( storey, storex );
                 break;
 
               case CV_8S:
-                for( int b = 0; b < m_nr_channels; b++ )
-                  m_kseeds[b][n] = m_chvec[b].at<char>( storey, storex );
+                for( int b = 0; b < channelsNo; b++ )
+                  seedsC[b][n] = channels[b].at<char>( storey, storex );
                 break;
 
               case CV_16U:
-                for( int b = 0; b < m_nr_channels; b++ )
-                  m_kseeds[b][n] = m_chvec[b].at<ushort>( storey, storex );
+                for( int b = 0; b < channelsNo; b++ )
+                  seedsC[b][n] = channels[b].at<ushort>( storey, storex );
                 break;
 
               case CV_16S:
-                for( int b = 0; b < m_nr_channels; b++ )
-                  m_kseeds[b][n] = m_chvec[b].at<short>( storey, storex );
+                for( int b = 0; b < channelsNo; b++ )
+                  seedsC[b][n] = channels[b].at<short>( storey, storex );
                 break;
 
               case CV_32S:
-                for( int b = 0; b < m_nr_channels; b++ )
-                  m_kseeds[b][n] = (float) m_chvec[b].at<int>( storey, storex );
+                for( int b = 0; b < channelsNo; b++ )
+                  seedsC[b][n] = (float) channels[b].at<int>( storey, storex );
                 break;
 
               case CV_32F:
-                for( int b = 0; b < m_nr_channels; b++ )
-                  m_kseeds[b][n] = m_chvec[b].at<float>( storey, storex );
+                for( int b = 0; b < channelsNo; b++ )
+                  seedsC[b][n] = channels[b].at<float>( storey, storex );
                 break;
 
               case CV_64F:
-                for( int b = 0; b < m_nr_channels; b++ )
-                  m_kseeds[b][n] = (float) m_chvec[b].at<double>( storey, storex );
+                for( int b = 0; b < channelsNo; b++ )
+                  seedsC[b][n] = (float) channels[b].at<double>( storey, storex );
                 break;
 
               default:
@@ -664,77 +665,77 @@ inline void SuperpixelSLIC_NORAImpl::PerturbSeeds( const Mat& edgemag )
  * pixel samples.
  *
  */
-inline void SuperpixelSLIC_NORAImpl::GetChSeedsS()
+inline void SlicImpl::GetChSeedsS()
 {
     int n = 0;
     int numseeds = 0;
 
-    int xstrips = int(0.5f + float(m_width) / float(m_region_size) );
-    int ystrips = int(0.5f + float(m_height) / float(m_region_size) );
+    int xstrips = int(0.5f + float(widthImg) / float(regionLength) );
+    int ystrips = int(0.5f + float(heightImg) / float(regionLength) );
 
-    int xerr = m_width  - m_region_size*xstrips;
-    int yerr = m_height - m_region_size*ystrips;
+    int xerr = widthImg  - regionLength*xstrips;
+    int yerr = heightImg - regionLength*ystrips;
 
     float xerrperstrip = float(xerr) / float(xstrips);
     float yerrperstrip = float(yerr) / float(ystrips);
 
-    int xoff = m_region_size / 2;
-    int yoff = m_region_size / 2;
+    int xoff = regionLength / 2;
+    int yoff = regionLength / 2;
 
     numseeds = xstrips*ystrips;
 
-    for ( int b = 0; b < m_nr_channels; b++ )
-      m_kseeds[b].resize(numseeds);
+    for ( int b = 0; b < channelsNo; b++ )
+      seedsC[b].resize(numseeds);
 
-    m_kseedsx.resize(numseeds);
-    m_kseedsy.resize(numseeds);
+    seedsX.resize(numseeds);
+    seedsY.resize(numseeds);
 
     for( int y = 0; y < ystrips; y++ )
     {
         int ye = y * (int)yerrperstrip;
-        int Y = y*m_region_size + yoff+ye;
-        if( Y > m_height-1 ) continue;
+        int Y = y*regionLength + yoff+ye;
+        if( Y > heightImg-1 ) continue;
         for( int x = 0; x < xstrips; x++ )
         {
             int xe = x * (int)xerrperstrip;
-            int X = x*m_region_size + xoff+xe;
-            if( X > m_width-1 ) continue;
+            int X = x*regionLength + xoff+xe;
+            if( X > widthImg-1 ) continue;
 
-            switch ( m_chvec[0].depth() )
+            switch ( channels[0].depth() )
             {
               case CV_8U:
-                for( int b = 0; b < m_nr_channels; b++ )
-                  m_kseeds[b][n] = m_chvec[b].at<uchar>(Y,X);
+                for( int b = 0; b < channelsNo; b++ )
+                  seedsC[b][n] = channels[b].at<uchar>(Y,X);
                 break;
 
               case CV_8S:
-                for( int b = 0; b < m_nr_channels; b++ )
-                  m_kseeds[b][n] = m_chvec[b].at<char>(Y,X);
+                for( int b = 0; b < channelsNo; b++ )
+                  seedsC[b][n] = channels[b].at<char>(Y,X);
                 break;
 
               case CV_16U:
-                for( int b = 0; b < m_nr_channels; b++ )
-                  m_kseeds[b][n] = m_chvec[b].at<ushort>(Y,X);
+                for( int b = 0; b < channelsNo; b++ )
+                  seedsC[b][n] = channels[b].at<ushort>(Y,X);
                 break;
 
               case CV_16S:
-                for( int b = 0; b < m_nr_channels; b++ )
-                  m_kseeds[b][n] = m_chvec[b].at<short>(Y,X);
+                for( int b = 0; b < channelsNo; b++ )
+                  seedsC[b][n] = channels[b].at<short>(Y,X);
                 break;
 
               case CV_32S:
-                for( int b = 0; b < m_nr_channels; b++ )
-                  m_kseeds[b][n] = (float) m_chvec[b].at<int>(Y,X);
+                for( int b = 0; b < channelsNo; b++ )
+                  seedsC[b][n] = (float) channels[b].at<int>(Y,X);
                 break;
 
               case CV_32F:
-                for( int b = 0; b < m_nr_channels; b++ )
-                  m_kseeds[b][n] = m_chvec[b].at<float>(Y,X);
+                for( int b = 0; b < channelsNo; b++ )
+                  seedsC[b][n] = channels[b].at<float>(Y,X);
                 break;
 
               case CV_64F:
-                for( int b = 0; b < m_nr_channels; b++ )
-                  m_kseeds[b][n] = (float) m_chvec[b].at<double>(Y,X);
+                for( int b = 0; b < channelsNo; b++ )
+                  seedsC[b][n] = (float) channels[b].at<double>(Y,X);
                 break;
 
               default:
@@ -742,8 +743,8 @@ inline void SuperpixelSLIC_NORAImpl::GetChSeedsS()
                 break;
             }
 
-            m_kseedsx[n] = (float)X;
-            m_kseedsy[n] = (float)Y;
+            seedsX[n] = (float)X;
+            seedsY[n] = (float)Y;
 
             n++;
         }
@@ -758,56 +759,56 @@ inline void SuperpixelSLIC_NORAImpl::GetChSeedsS()
  * pixel samples.
  *
  */
-inline void SuperpixelSLIC_NORAImpl::GetChSeedsK()
+inline void SlicImpl::GetChSeedsK()
 {
-    int xoff = m_region_size / 2;
-    int yoff = m_region_size / 2;
+    int xoff = regionLength / 2;
+    int yoff = regionLength / 2;
     int n = 0; int r = 0;
-    for( int y = 0; y < m_height; y++ )
+    for( int y = 0; y < heightImg; y++ )
     {
-        int Y = y*m_region_size + yoff;
-        if( Y > m_height-1 ) continue;
-        for( int x = 0; x < m_width; x++ )
+        int Y = y*regionLength + yoff;
+        if( Y > heightImg-1 ) continue;
+        for( int x = 0; x < widthImg; x++ )
         {
             // hex grid
-            int X = x*m_region_size + ( xoff<<( r & 0x1) );
-            if( X > m_width-1 ) continue;
+            int X = x*regionLength + ( xoff<<( r & 0x1) );
+            if( X > widthImg-1 ) continue;
 
-            switch ( m_chvec[0].depth() )
+            switch ( channels[0].depth() )
             {
               case CV_8U:
-                for( int b = 0; b < m_nr_channels; b++ )
-                  m_kseeds[b].push_back( m_chvec[b].at<uchar>(Y,X) );
+                for( int b = 0; b < channelsNo; b++ )
+                  seedsC[b].push_back( channels[b].at<uchar>(Y,X) );
                 break;
 
               case CV_8S:
-                for( int b = 0; b < m_nr_channels; b++ )
-                  m_kseeds[b].push_back( m_chvec[b].at<char>(Y,X) );
+                for( int b = 0; b < channelsNo; b++ )
+                  seedsC[b].push_back( channels[b].at<char>(Y,X) );
                 break;
 
               case CV_16U:
-                for( int b = 0; b < m_nr_channels; b++ )
-                  m_kseeds[b].push_back( m_chvec[b].at<ushort>(Y,X) );
+                for( int b = 0; b < channelsNo; b++ )
+                  seedsC[b].push_back( channels[b].at<ushort>(Y,X) );
                 break;
 
               case CV_16S:
-                for( int b = 0; b < m_nr_channels; b++ )
-                  m_kseeds[b].push_back( m_chvec[b].at<short>(Y,X) );
+                for( int b = 0; b < channelsNo; b++ )
+                  seedsC[b].push_back( channels[b].at<short>(Y,X) );
                 break;
 
               case CV_32S:
-                for( int b = 0; b < m_nr_channels; b++ )
-                  m_kseeds[b].push_back( (float) m_chvec[b].at<int>(Y,X) );
+                for( int b = 0; b < channelsNo; b++ )
+                  seedsC[b].push_back( (float) channels[b].at<int>(Y,X) );
                 break;
 
               case CV_32F:
-                for( int b = 0; b < m_nr_channels; b++ )
-                  m_kseeds[b].push_back( m_chvec[b].at<float>(Y,X) );
+                for( int b = 0; b < channelsNo; b++ )
+                  seedsC[b].push_back( channels[b].at<float>(Y,X) );
                 break;
 
               case CV_64F:
-                for( int b = 0; b < m_nr_channels; b++ )
-                  m_kseeds[b].push_back( (float) m_chvec[b].at<double>(Y,X) );
+                for( int b = 0; b < channelsNo; b++ )
+                  seedsC[b].push_back( (float) channels[b].at<double>(Y,X) );
                 break;
 
               default:
@@ -815,8 +816,8 @@ inline void SuperpixelSLIC_NORAImpl::GetChSeedsK()
                 break;
             }
 
-            m_kseedsx.push_back((float)X);
-            m_kseedsy.push_back((float)Y);
+            seedsX.push_back((float)X);
+            seedsY.push_back((float)Y);
 
             n++;
         }
@@ -986,9 +987,9 @@ struct SeedsCenters
     vector< vector<float> > sigma;
 };
 
-struct SLIC_NORAOGrowInvoker : ParallelLoopBody
+struct SlicoGrowInvoker : ParallelLoopBody
 {
-    SLIC_NORAOGrowInvoker( vector<Mat>* _chvec, Mat* _distchans, Mat* _distxy, Mat* _distvec,
+    SlicoGrowInvoker( vector<Mat>* _chvec, Mat* _distchans, Mat* _distxy, Mat* _distvec,
                       Mat* _klabels, float _kseedsxn, float _kseedsyn, float _xywt,
                       float _maxchansn, vector< vector<float> > *_kseeds,
                       int _x1, int _x2, int _nr_channels, int _n )
@@ -1119,7 +1120,7 @@ struct SLIC_NORAOGrowInvoker : ParallelLoopBody
 
 /*
  *
- *    Magic SLIC_NORA - no parameters
+ *    Magic Slic - no parameters
  *
  *    Performs k mean segmentation. It is fast because it looks locally, not
  * over the entire image.
@@ -1131,51 +1132,51 @@ struct SLIC_NORAOGrowInvoker : ParallelLoopBody
  * [1] The algorithm now better handles both textured and non-textured regions
  * [2] There is not need to set any parameters!!!
  *
- * SLIC_NORAO (or SLIC_NORA Zero) dynamically varies only the compactness factor S,
+ * Slico (or Slic Zero) dynamically varies only the compactness factor S,
  * not the step size S.
  *
  */
-inline void SuperpixelSLIC_NORAImpl::PerformSLIC_NORAO( const int&  itrnum )
+inline void SlicImpl::PerformSlico( const int&  itrnum )
 {
-    Mat distxy( m_height, m_width, CV_32F, Scalar::all(FLT_MAX) );
-    Mat distvec( m_height, m_width, CV_32F, Scalar::all(FLT_MAX) );
-    Mat distchans( m_height, m_width, CV_32F, Scalar::all(FLT_MAX) );
+    Mat distxy( heightImg, widthImg, CV_32F, Scalar::all(FLT_MAX) );
+    Mat distvec( heightImg, widthImg, CV_32F, Scalar::all(FLT_MAX) );
+    Mat distchans( heightImg, widthImg, CV_32F, Scalar::all(FLT_MAX) );
 
     // this is the variable value of M, just start with 10
-    vector<float> maxchans( m_numlabels, FLT_MIN );
+    vector<float> maxchans( kSuperpixels, FLT_MIN );
     // this is the variable value of M, just start with 10
-    vector<float> maxxy( m_numlabels, FLT_MIN );
-    // note: this is different from how usual SLIC_NORA/LKM works
-    const float xywt = float(m_region_size*m_region_size);
+    vector<float> maxxy( kSuperpixels, FLT_MIN );
+    // note: this is different from how usual Slic/LKM works
+    const float xywt = float(regionLength*regionLength);
 
     for( int itr = 0; itr < itrnum; itr++ )
     {
         distvec.setTo(FLT_MAX);
-        for( int n = 0; n < m_numlabels; n++ )
+        for( int n = 0; n < kSuperpixels; n++ )
         {
-            int y1 = max(0, (int) m_kseedsy[n] - m_region_size);
-            int y2 = min(m_height, (int) m_kseedsy[n] + m_region_size);
-            int x1 = max(0, (int) m_kseedsx[n] - m_region_size);
-            int x2 = min((int) m_width,(int) m_kseedsx[n] + m_region_size);
+            int y1 = max(0, (int) seedsY[n] - regionLength);
+            int y2 = min(heightImg, (int) seedsY[n] + regionLength);
+            int x1 = max(0, (int) seedsX[n] - regionLength);
+            int x2 = min((int) widthImg,(int) seedsX[n] + regionLength);
 
-            parallel_for_( Range(y1, y2), SLIC_NORAOGrowInvoker( &m_chvec, &distchans, &distxy, &distvec,
-                           &m_klabels, m_kseedsx[n], m_kseedsy[n], xywt, maxchans[n], &m_kseeds,
-                           x1, x2, m_nr_channels, n ) );
+            parallel_for_( Range(y1, y2), SlicoGrowInvoker( &channels, &distchans, &distxy, &distvec,
+                           &labels, seedsX[n], seedsY[n], xywt, maxchans[n], &seedsC,
+                           x1, x2, channelsNo, n ) );
         }
         //-----------------------------------------------------------------
         // Assign the max color distance for a cluster
         //-----------------------------------------------------------------
         if( itr == 0 )
         {
-            maxchans.assign(m_numlabels,FLT_MIN);
-            maxxy.assign(m_numlabels,FLT_MIN);
+            maxchans.assign(kSuperpixels,FLT_MIN);
+            maxxy.assign(kSuperpixels,FLT_MIN);
         }
 
-        for( int x = 0; x < m_width; x++ )
+        for( int x = 0; x < widthImg; x++ )
         {
-          for( int y = 0; y < m_height; y++ )
+          for( int y = 0; y < heightImg; y++ )
           {
-              int idx = m_klabels.at<int>(y,x);
+              int idx = labels.at<int>(y,x);
 
               if( maxchans[idx] < distchans.at<float>(y,x) )
                   maxchans[idx] = distchans.at<float>(y,x);
@@ -1189,21 +1190,21 @@ inline void SuperpixelSLIC_NORAImpl::PerformSLIC_NORAO( const int&  itrnum )
         //-----------------------------------------------------------------
 
         // parallel reduce structure
-        SeedsCenters sc( m_chvec, m_klabels, m_numlabels, m_nr_channels );
+        SeedsCenters sc( channels, labels, kSuperpixels, channelsNo );
 
         // accumulate center distances
-        parallel_reduce( BlockedRange(0, m_width), sc );
+        parallel_reduce( BlockedRange(0, widthImg), sc );
 
         // normalize centers
-        parallel_for_( Range(0, m_numlabels), SeedNormInvoker( &m_kseeds, &sc.sigma,
-                       &sc.clustersize, &sc.sigmax, &sc.sigmay, &m_kseedsx, &m_kseedsy, m_nr_channels  ) );
+        parallel_for_( Range(0, kSuperpixels), SeedNormInvoker( &seedsC, &sc.sigma,
+                       &sc.clustersize, &sc.sigmax, &sc.sigmay, &seedsX, &seedsY, channelsNo  ) );
 
     }
 }
 
-struct SLIC_NORAGrowInvoker : ParallelLoopBody
+struct SlicGrowInvoker : ParallelLoopBody
 {
-    SLIC_NORAGrowInvoker( vector<Mat>* _chvec, Mat* _distvec, Mat* _klabels,
+    SlicGrowInvoker( vector<Mat>* _chvec, Mat* _distvec, Mat* _klabels,
                      float _kseedsxn, float _kseedsyn, float _xywt,
                      vector< vector<float> > *_kseeds, int _x1, int _x2,
                      int _nr_channels, int _n )
@@ -1320,31 +1321,31 @@ struct SLIC_NORAGrowInvoker : ParallelLoopBody
 };
 
 /*
- *    PerformSuperpixelSLIC_NORA
+ *    PerformSuperpixelSlic
  *
  *    Performs k mean segmentation. It is fast because it looks locally, not
  * over the entire image.
  *
  */
-inline void SuperpixelSLIC_NORAImpl::PerformSLIC_NORA( const int&  itrnum )
+inline void SlicImpl::PerformSlic( const int&  itrnum )
 {
-    Mat distvec( m_height, m_width, CV_32F );
+    Mat distvec( heightImg, widthImg, CV_32F );
 
-    const float xywt = (m_region_size/m_ruler)*(m_region_size/m_ruler);
+    const float xywt = (regionLength/compactness)*(regionLength/compactness);
 
     for( int itr = 0; itr < itrnum; itr++ )
     {
         distvec.setTo(FLT_MAX);
-        for( int n = 0; n < m_numlabels; n++ )
+        for( int n = 0; n < kSuperpixels; n++ )
         {
-            int y1 = max(0, (int) m_kseedsy[n] - m_region_size);
-            int y2 = min(m_height, (int) m_kseedsy[n] + m_region_size);
-            int x1 = max(0, (int) m_kseedsx[n] - m_region_size);
-            int x2 = min((int) m_width,(int) m_kseedsx[n] + m_region_size);
+            int y1 = max(0, (int) seedsY[n] - regionLength);
+            int y2 = min(heightImg, (int) seedsY[n] + regionLength);
+            int x1 = max(0, (int) seedsX[n] - regionLength);
+            int x2 = min((int) widthImg,(int) seedsX[n] + regionLength);
 
-            parallel_for_( Range(y1, y2), SLIC_NORAGrowInvoker( &m_chvec, &distvec,
-                           &m_klabels, m_kseedsx[n], m_kseedsy[n], xywt, &m_kseeds,
-                           x1, x2, m_nr_channels, n ) );
+            parallel_for_( Range(y1, y2), SlicGrowInvoker( &channels, &distvec,
+                           &labels, seedsX[n], seedsY[n], xywt, &seedsC,
+                           x1, x2, channelsNo, n ) );
         }
 
         //-----------------------------------------------------------------
@@ -1353,34 +1354,34 @@ inline void SuperpixelSLIC_NORAImpl::PerformSLIC_NORA( const int&  itrnum )
         // instead of reassigning memory on each iteration, just reset.
 
         // parallel reduce structure
-        SeedsCenters sc( m_chvec, m_klabels, m_numlabels, m_nr_channels );
+        SeedsCenters sc( channels, labels, kSuperpixels, channelsNo );
 
         // accumulate center distances
-        parallel_reduce( BlockedRange(0, m_width), sc );
+        parallel_reduce( BlockedRange(0, widthImg), sc );
 
         // normalize centers
-        parallel_for_( Range(0, m_numlabels), SeedNormInvoker( &m_kseeds, &sc.sigma,
-                       &sc.clustersize, &sc.sigmax, &sc.sigmay, &m_kseedsx, &m_kseedsy, m_nr_channels  ) );
+        parallel_for_( Range(0, kSuperpixels), SeedNormInvoker( &seedsC, &sc.sigma,
+                       &sc.clustersize, &sc.sigmax, &sc.sigmay, &seedsX, &seedsY, channelsNo  ) );
 
     }
 }
 
 /*
- *    PerformSuperpixelMSLIC_NORA
+ *    PerformSuperpixelMSlic
  *
  *
  */
-inline void SuperpixelSLIC_NORAImpl::PerformMSLIC_NORA( const int&  itrnum )
+inline void SlicImpl::PerformMSlic( const int&  itrnum )
 {
-    vector< vector<float> > sigma(m_nr_channels);
-    for( int b = 0; b < m_nr_channels; b++ )
-      sigma[b].resize(m_numlabels, 0);
+    vector< vector<float> > sigma(channelsNo);
+    for( int b = 0; b < channelsNo; b++ )
+      sigma[b].resize(kSuperpixels, 0);
 
-    Mat distvec( m_height, m_width, CV_32F );
+    Mat distvec( heightImg, widthImg, CV_32F );
 
-    const float xywt = (m_region_size/m_ruler)*(m_region_size/m_ruler);
+    const float xywt = (regionLength/compactness)*(regionLength/compactness);
 
-    int offset = m_region_size;
+    int offset = regionLength;
 
     // from paper
     m_split = 4.0f;
@@ -1391,21 +1392,21 @@ inline void SuperpixelSLIC_NORAImpl::PerformMSLIC_NORA( const int&  itrnum )
         m_cur_iter = itr;
 
         distvec.setTo(FLT_MAX);
-        for( int n = 0; n < m_numlabels; n++ )
+        for( int n = 0; n < kSuperpixels; n++ )
         {
             if ( m_adaptk[n] < 1.0f )
-                offset = int(m_region_size * m_adaptk[n]);
+                offset = int(regionLength * m_adaptk[n]);
             else
-                offset = int(m_region_size * m_adaptk[n]);
+                offset = int(regionLength * m_adaptk[n]);
 
-            int y1 = max(0,        (int) m_kseedsy[n] - offset);
-            int y2 = min(m_height, (int) m_kseedsy[n] + offset);
-            int x1 = max(0,        (int) m_kseedsx[n] - offset);
-            int x2 = min(m_width,  (int) m_kseedsx[n] + offset);
+            int y1 = max(0,        (int) seedsY[n] - offset);
+            int y2 = min(heightImg, (int) seedsY[n] + offset);
+            int x1 = max(0,        (int) seedsX[n] - offset);
+            int x2 = min(widthImg,  (int) seedsX[n] + offset);
 
-            parallel_for_( Range(y1, y2), SLIC_NORAGrowInvoker( &m_chvec, &distvec,
-                           &m_klabels, m_kseedsx[n], m_kseedsy[n], xywt, &m_kseeds,
-                           x1, x2, m_nr_channels, n ) );
+            parallel_for_( Range(y1, y2), SlicGrowInvoker( &channels, &distvec,
+                           &labels, seedsX[n], seedsY[n], xywt, &seedsC,
+                           x1, x2, channelsNo, n ) );
         }
 
         //-----------------------------------------------------------------
@@ -1414,14 +1415,14 @@ inline void SuperpixelSLIC_NORAImpl::PerformMSLIC_NORA( const int&  itrnum )
         // instead of reassigning memory on each iteration, just reset.
 
         // parallel reduce structure
-        SeedsCenters sc( m_chvec, m_klabels, m_numlabels, m_nr_channels );
+        SeedsCenters sc( channels, labels, kSuperpixels, channelsNo );
 
         // accumulate center distances
-        parallel_reduce( BlockedRange(0, m_width), sc );
+        parallel_reduce( BlockedRange(0, widthImg), sc );
 
         // normalize centers
-        parallel_for_( Range(0, m_numlabels), SeedNormInvoker( &m_kseeds, &sc.sigma,
-                       &sc.clustersize, &sc.sigmax, &sc.sigmay, &m_kseedsx, &m_kseedsy, m_nr_channels ) );
+        parallel_for_( Range(0, kSuperpixels), SeedNormInvoker( &seedsC, &sc.sigma,
+                       &sc.clustersize, &sc.sigmax, &sc.sigmay, &seedsX, &seedsY, channelsNo ) );
 
         // 13% as in original paper
         enforceLabelConnectivity( 13 );
@@ -1429,25 +1430,25 @@ inline void SuperpixelSLIC_NORAImpl::PerformMSLIC_NORA( const int&  itrnum )
     }
 }
 
-inline void SuperpixelSLIC_NORAImpl::SuperpixelSplit()
+inline void SlicImpl::SuperpixelSplit()
 {
-    Mat klabels = m_klabels.clone();
+    Mat klabels = labels.clone();
 
     // parallel reduce structure
-    SeedsCenters msc( m_chvec, m_klabels, m_numlabels, m_nr_channels );
+    SeedsCenters msc( channels, labels, kSuperpixels, channelsNo );
 
     // accumulate center distances
-    parallel_reduce( BlockedRange(0, m_width), msc );
+    parallel_reduce( BlockedRange(0, widthImg), msc );
 
-    const float invwt = 1.0f / ( (m_region_size/m_ruler)*(m_region_size/m_ruler) );
+    const float invwt = 1.0f / ( (regionLength/compactness)*(regionLength/compactness) );
     const float sqrt_invwt = sqrt(invwt);
 
     if ( m_cur_iter < m_iterations - 2 )
     {
-        vector<float> avglabs( m_numlabels, 0 );
-        for( int y = 0; y < m_height - 1; y++ )
+        vector<float> avglabs( kSuperpixels, 0 );
+        for( int y = 0; y < heightImg - 1; y++ )
         {
-            for( int x = 0; x < m_width - 1; x++ )
+            for( int x = 0; x < widthImg - 1; x++ )
             {
                 if ( klabels.at<int>( y, x ) == klabels.at<int>( y+1, x ) &&
                      klabels.at<int>( y, x ) == klabels.at<int>( y, x+1 ) )
@@ -1455,18 +1456,18 @@ inline void SuperpixelSLIC_NORAImpl::SuperpixelSplit()
                     float x1 = 1, y1 = 0;
                     float x2 = 0, y2 = 1;
 
-                    vector<float> ch1(m_nr_channels);
-                    vector<float> ch2(m_nr_channels);
+                    vector<float> ch1(channelsNo);
+                    vector<float> ch2(channelsNo);
 
-                    switch ( m_chvec.at(0).depth() )
+                    switch ( channels.at(0).depth() )
                     {
                       case CV_8U:
-                        for( int c = 0; c < m_nr_channels; c++ )
+                        for( int c = 0; c < channelsNo; c++ )
                         {
-                            ch1[c] = float( m_chvec[c].at<uchar>( y+1, x   )
-                                          - m_chvec[c].at<uchar>( y,   x   ) );
-                            ch2[c] = float( m_chvec[c].at<uchar>( y,   x+1 )
-                                          - m_chvec[c].at<uchar>( y,   x   ) );
+                            ch1[c] = float( channels[c].at<uchar>( y+1, x   )
+                                          - channels[c].at<uchar>( y,   x   ) );
+                            ch2[c] = float( channels[c].at<uchar>( y,   x+1 )
+                                          - channels[c].at<uchar>( y,   x   ) );
 
                             ch1[c] /= sqrt_invwt;
                             ch2[c] /= sqrt_invwt;
@@ -1474,12 +1475,12 @@ inline void SuperpixelSLIC_NORAImpl::SuperpixelSplit()
                         break;
 
                       case CV_8S:
-                        for( int c = 0; c < m_nr_channels; c++ )
+                        for( int c = 0; c < channelsNo; c++ )
                         {
-                            ch1[c] = float( m_chvec[c].at<char>( y+1, x   )
-                                          - m_chvec[c].at<char>( y,   x   ) );
-                            ch2[c] = float( m_chvec[c].at<char>( y,   x+1 )
-                                          - m_chvec[c].at<char>( y,   x   ) );
+                            ch1[c] = float( channels[c].at<char>( y+1, x   )
+                                          - channels[c].at<char>( y,   x   ) );
+                            ch2[c] = float( channels[c].at<char>( y,   x+1 )
+                                          - channels[c].at<char>( y,   x   ) );
 
                             ch1[c] /= sqrt_invwt;
                             ch2[c] /= sqrt_invwt;
@@ -1487,12 +1488,12 @@ inline void SuperpixelSLIC_NORAImpl::SuperpixelSplit()
                         break;
 
                       case CV_16U:
-                        for( int c = 0; c < m_nr_channels; c++ )
+                        for( int c = 0; c < channelsNo; c++ )
                         {
-                            ch1[c] = float( m_chvec[c].at<ushort>( y+1, x   )
-                                          - m_chvec[c].at<ushort>( y,   x   ) );
-                            ch2[c] = float( m_chvec[c].at<ushort>( y,   x+1 )
-                                          - m_chvec[c].at<ushort>( y,   x   ) );
+                            ch1[c] = float( channels[c].at<ushort>( y+1, x   )
+                                          - channels[c].at<ushort>( y,   x   ) );
+                            ch2[c] = float( channels[c].at<ushort>( y,   x+1 )
+                                          - channels[c].at<ushort>( y,   x   ) );
 
                             ch1[c] /= sqrt_invwt;
                             ch2[c] /= sqrt_invwt;
@@ -1500,12 +1501,12 @@ inline void SuperpixelSLIC_NORAImpl::SuperpixelSplit()
                         break;
 
                       case CV_16S:
-                        for( int c = 0; c < m_nr_channels; c++ )
+                        for( int c = 0; c < channelsNo; c++ )
                         {
-                            ch1[c] = float( m_chvec[c].at<short>( y+1, x   )
-                                          - m_chvec[c].at<short>( y,   x   ) );
-                            ch2[c] = float( m_chvec[c].at<short>( y,   x+1 )
-                                          - m_chvec[c].at<short>( y,   x   ) );
+                            ch1[c] = float( channels[c].at<short>( y+1, x   )
+                                          - channels[c].at<short>( y,   x   ) );
+                            ch2[c] = float( channels[c].at<short>( y,   x+1 )
+                                          - channels[c].at<short>( y,   x   ) );
 
                             ch1[c] /= sqrt_invwt;
                             ch2[c] /= sqrt_invwt;
@@ -1513,12 +1514,12 @@ inline void SuperpixelSLIC_NORAImpl::SuperpixelSplit()
                         break;
 
                       case CV_32S:
-                        for( int c = 0; c < m_nr_channels; c++ )
+                        for( int c = 0; c < channelsNo; c++ )
                         {
-                            ch1[c] = float( m_chvec[c].at<int>( y+1, x   )
-                                          - m_chvec[c].at<int>( y,   x   ) );
-                            ch2[c] = float( m_chvec[c].at<int>( y,   x+1 )
-                                          - m_chvec[c].at<int>( y,   x   ) );
+                            ch1[c] = float( channels[c].at<int>( y+1, x   )
+                                          - channels[c].at<int>( y,   x   ) );
+                            ch2[c] = float( channels[c].at<int>( y,   x+1 )
+                                          - channels[c].at<int>( y,   x   ) );
 
                             ch1[c] /= sqrt_invwt;
                             ch2[c] /= sqrt_invwt;
@@ -1526,12 +1527,12 @@ inline void SuperpixelSLIC_NORAImpl::SuperpixelSplit()
                         break;
 
                       case CV_32F:
-                        for( int c = 0; c < m_nr_channels; c++ )
+                        for( int c = 0; c < channelsNo; c++ )
                         {
-                            ch1[c] = m_chvec[c].at<float>( y+1, x   )
-                                   - m_chvec[c].at<float>( y,   x   );
-                            ch2[c] = m_chvec[c].at<float>( y,   x+1 )
-                                   - m_chvec[c].at<float>( y,   x   );
+                            ch1[c] = channels[c].at<float>( y+1, x   )
+                                   - channels[c].at<float>( y,   x   );
+                            ch2[c] = channels[c].at<float>( y,   x+1 )
+                                   - channels[c].at<float>( y,   x   );
 
                             ch1[c] /= sqrt_invwt;
                             ch2[c] /= sqrt_invwt;
@@ -1539,12 +1540,12 @@ inline void SuperpixelSLIC_NORAImpl::SuperpixelSplit()
                         break;
 
                       case CV_64F:
-                        for( int c = 0; c < m_nr_channels; c++ )
+                        for( int c = 0; c < channelsNo; c++ )
                         {
-                            ch1[c] = float( m_chvec[c].at<double>( y+1, x   )
-                                          - m_chvec[c].at<double>( y,   x   ) );
-                            ch2[c] = float( m_chvec[c].at<double>( y,   x+1 )
-                                          - m_chvec[c].at<double>( y,   x   ) );
+                            ch1[c] = float( channels[c].at<double>( y+1, x   )
+                                          - channels[c].at<double>( y,   x   ) );
+                            ch2[c] = float( channels[c].at<double>( y,   x+1 )
+                                          - channels[c].at<double>( y,   x   ) );
 
                             ch1[c] /= sqrt_invwt;
                             ch2[c] /= sqrt_invwt;
@@ -1558,7 +1559,7 @@ inline void SuperpixelSLIC_NORAImpl::SuperpixelSplit()
                     float ch11sqsum = 0.0f;
                     float ch12sqsum = 0.0f;
                     float ch22sqsum = 0.0f;
-                    for( int c = 0; c < m_nr_channels; c++ )
+                    for( int c = 0; c < channelsNo; c++ )
                     {
                        ch11sqsum += ch1[c]*ch1[c];
                        ch12sqsum += ch1[c]*ch2[c];
@@ -1572,39 +1573,39 @@ inline void SuperpixelSLIC_NORAImpl::SuperpixelSplit()
                 }
              }
         }
-        for ( int i = 0; i < m_numlabels; i++ )
+        for ( int i = 0; i < kSuperpixels; i++ )
         {
-            avglabs[i] /= m_region_size * m_region_size;
+            avglabs[i] /= regionLength * regionLength;
         }
 
-        m_kseedsx.clear();
-        m_kseedsy.clear();
-        m_kseedsx.resize( m_numlabels, 0 );
-        m_kseedsy.resize( m_numlabels, 0 );
-        for( int c = 0; c < m_nr_channels; c++ )
+        seedsX.clear();
+        seedsY.clear();
+        seedsX.resize( kSuperpixels, 0 );
+        seedsY.resize( kSuperpixels, 0 );
+        for( int c = 0; c < channelsNo; c++ )
         {
-          m_kseeds[c].clear();
-          m_kseeds[c].resize( m_numlabels, 0 );
+          seedsC[c].clear();
+          seedsC[c].resize( kSuperpixels, 0 );
         }
 
-        for( int k = 0; k < m_numlabels; k++ )
+        for( int k = 0; k < kSuperpixels; k++ )
         {
-            m_kseedsx[k] = msc.sigmax[k] / msc.clustersize[k];
-            m_kseedsy[k] = msc.sigmay[k] / msc.clustersize[k];
-            for( int c = 0; c < m_nr_channels; c++ )
-                m_kseeds[c][k] = msc.sigma[c][k] / msc.clustersize[k];
+            seedsX[k] = msc.sigmax[k] / msc.clustersize[k];
+            seedsY[k] = msc.sigmay[k] / msc.clustersize[k];
+            for( int c = 0; c < channelsNo; c++ )
+                seedsC[c][k] = msc.sigma[c][k] / msc.clustersize[k];
         }
 
-        for( int k = 0; k < m_numlabels; k++ )
+        for( int k = 0; k < kSuperpixels; k++ )
         {
             int xindex = 0, yindex = 0;
             if ( ( m_adaptk[k] <= 0.5f ) ||
                  ( avglabs[k] < (m_split * m_ratio) ) )
             {
-                m_kseedsx[k] = msc.sigmax[k] / msc.clustersize[k];
-                m_kseedsy[k] = msc.sigmay[k] / msc.clustersize[k];
-                for( int c = 0; c < m_nr_channels; c++ )
-                  m_kseeds[c][k] = msc.sigma[c][k] / msc.clustersize[k];
+                seedsX[k] = msc.sigmax[k] / msc.clustersize[k];
+                seedsY[k] = msc.sigmay[k] / msc.clustersize[k];
+                for( int c = 0; c < channelsNo; c++ )
+                  seedsC[c][k] = msc.sigma[c][k] / msc.clustersize[k];
 
                 m_adaptk[k] = sqrt( m_ratio / avglabs[k] );
                 m_adaptk[k] = max( 0.5f, m_adaptk[k] );
@@ -1618,7 +1619,7 @@ inline void SuperpixelSLIC_NORAImpl::SuperpixelSplit()
                 yindex = (int)( msc.sigmay[k] / msc.clustersize[k] );
                 m_adaptk[k] = max( 0.5f, m_adaptk[k] / 2 );
 
-                const float minadaptk = min( 1.0f, m_adaptk[k] ) * m_region_size / 2;
+                const float minadaptk = min( 1.0f, m_adaptk[k] ) * regionLength / 2;
 
                 int x1 = (int)( xindex - minadaptk );
                 int x2 = (int)( xindex + minadaptk );
@@ -1631,46 +1632,46 @@ inline void SuperpixelSLIC_NORAImpl::SuperpixelSplit()
                 int y4 = (int)( yindex - minadaptk );
 
                 if ( x1 < 0         ) x1 = 0;
-                if ( x2 >= m_width  ) x2 = m_width  - 1;
+                if ( x2 >= widthImg  ) x2 = widthImg  - 1;
                 if ( x3 < 0         ) x3 = 0;
-                if ( x4 >= m_width  ) x4 = m_width  - 1;
-                if ( y1 >= m_height ) y1 = m_height - 1;
-                if ( y2 >= m_height ) y2 = m_height - 1;
+                if ( x4 >= widthImg  ) x4 = widthImg  - 1;
+                if ( y1 >= heightImg ) y1 = heightImg - 1;
+                if ( y2 >= heightImg ) y2 = heightImg - 1;
                 if ( y3 < 0         ) y3 = 0;
                 if ( y4 < 0         ) y4 = 0;
 
-                m_kseedsx[k] = (float)x1;
-                m_kseedsy[k] = (float)y1;
-                for( int c = 0; c < m_nr_channels; c++ )
+                seedsX[k] = (float)x1;
+                seedsY[k] = (float)y1;
+                for( int c = 0; c < channelsNo; c++ )
                 {
-                    switch ( m_chvec[c].depth() )
+                    switch ( channels[c].depth() )
                     {
                       case CV_8U:
-                        m_kseeds[c][k] = m_chvec[c].at<uchar>(y1,x1);
+                        seedsC[c][k] = channels[c].at<uchar>(y1,x1);
                         break;
 
                       case CV_8S:
-                        m_kseeds[c][k] = m_chvec[c].at<char>(y1,x1);
+                        seedsC[c][k] = channels[c].at<char>(y1,x1);
                         break;
 
                       case CV_16U:
-                        m_kseeds[c][k] = m_chvec[c].at<ushort>(y1,x1);
+                        seedsC[c][k] = channels[c].at<ushort>(y1,x1);
                         break;
 
                       case CV_16S:
-                        m_kseeds[c][k] = m_chvec[c].at<short>(y1,x1);
+                        seedsC[c][k] = channels[c].at<short>(y1,x1);
                         break;
 
                       case CV_32S:
-                        m_kseeds[c][k] = float(m_chvec[c].at<int>(y1,x1));
+                        seedsC[c][k] = float(channels[c].at<int>(y1,x1));
                         break;
 
                       case CV_32F:
-                        m_kseeds[c][k] = m_chvec[c].at<float>(y1,x1);
+                        seedsC[c][k] = channels[c].at<float>(y1,x1);
                         break;
 
                       case CV_64F:
-                        m_kseeds[c][k] = float(m_chvec[c].at<double>(y1,x1));
+                        seedsC[c][k] = float(channels[c].at<double>(y1,x1));
                         break;
 
                       default:
@@ -1679,57 +1680,57 @@ inline void SuperpixelSLIC_NORAImpl::SuperpixelSplit()
                     }
                 }
 
-                m_kseedsx.push_back( (float)x2 );
-                m_kseedsx.push_back( (float)x3 );
-                m_kseedsx.push_back( (float)x4 );
-                m_kseedsy.push_back( (float)y2 );
-                m_kseedsy.push_back( (float)y3 );
-                m_kseedsy.push_back( (float)y4 );
+                seedsX.push_back( (float)x2 );
+                seedsX.push_back( (float)x3 );
+                seedsX.push_back( (float)x4 );
+                seedsY.push_back( (float)y2 );
+                seedsY.push_back( (float)y3 );
+                seedsY.push_back( (float)y4 );
 
-                for( int c = 0; c < m_nr_channels; c++ )
+                for( int c = 0; c < channelsNo; c++ )
                 {
-                    switch ( m_chvec[c].depth() )
+                    switch ( channels[c].depth() )
                     {
                       case CV_8U:
-                        m_kseeds[c].push_back( m_chvec[c].at<uchar>(y2,x2) );
-                        m_kseeds[c].push_back( m_chvec[c].at<uchar>(y3,x3) );
-                        m_kseeds[c].push_back( m_chvec[c].at<uchar>(y4,x4) );
+                        seedsC[c].push_back( channels[c].at<uchar>(y2,x2) );
+                        seedsC[c].push_back( channels[c].at<uchar>(y3,x3) );
+                        seedsC[c].push_back( channels[c].at<uchar>(y4,x4) );
                         break;
 
                       case CV_8S:
-                        m_kseeds[c].push_back( m_chvec[c].at<char>(y2,x2) );
-                        m_kseeds[c].push_back( m_chvec[c].at<char>(y3,x3) );
-                        m_kseeds[c].push_back( m_chvec[c].at<char>(y4,x4) );
+                        seedsC[c].push_back( channels[c].at<char>(y2,x2) );
+                        seedsC[c].push_back( channels[c].at<char>(y3,x3) );
+                        seedsC[c].push_back( channels[c].at<char>(y4,x4) );
                         break;
 
                       case CV_16U:
-                        m_kseeds[c].push_back( m_chvec[c].at<ushort>(y2,x2) );
-                        m_kseeds[c].push_back( m_chvec[c].at<ushort>(y3,x3) );
-                        m_kseeds[c].push_back( m_chvec[c].at<ushort>(y4,x4) );
+                        seedsC[c].push_back( channels[c].at<ushort>(y2,x2) );
+                        seedsC[c].push_back( channels[c].at<ushort>(y3,x3) );
+                        seedsC[c].push_back( channels[c].at<ushort>(y4,x4) );
                         break;
 
                       case CV_16S:
-                        m_kseeds[c].push_back( m_chvec[c].at<short>(y2,x2) );
-                        m_kseeds[c].push_back( m_chvec[c].at<short>(y3,x3) );
-                        m_kseeds[c].push_back( m_chvec[c].at<short>(y4,x4) );
+                        seedsC[c].push_back( channels[c].at<short>(y2,x2) );
+                        seedsC[c].push_back( channels[c].at<short>(y3,x3) );
+                        seedsC[c].push_back( channels[c].at<short>(y4,x4) );
                         break;
 
                       case CV_32S:
-                        m_kseeds[c].push_back( float(m_chvec[c].at<int>(y2,x2)) );
-                        m_kseeds[c].push_back( float(m_chvec[c].at<int>(y3,x3)) );
-                        m_kseeds[c].push_back( float(m_chvec[c].at<int>(y4,x4)) );
+                        seedsC[c].push_back( float(channels[c].at<int>(y2,x2)) );
+                        seedsC[c].push_back( float(channels[c].at<int>(y3,x3)) );
+                        seedsC[c].push_back( float(channels[c].at<int>(y4,x4)) );
                         break;
 
                       case CV_32F:
-                        m_kseeds[c].push_back( m_chvec[c].at<float>(y2,x2) );
-                        m_kseeds[c].push_back( m_chvec[c].at<float>(y3,x3) );
-                        m_kseeds[c].push_back( m_chvec[c].at<float>(y4,x4) );
+                        seedsC[c].push_back( channels[c].at<float>(y2,x2) );
+                        seedsC[c].push_back( channels[c].at<float>(y3,x3) );
+                        seedsC[c].push_back( channels[c].at<float>(y4,x4) );
                         break;
 
                       case CV_64F:
-                        m_kseeds[c].push_back( float(m_chvec[c].at<double>(y2,x2)) );
-                        m_kseeds[c].push_back( float(m_chvec[c].at<double>(y3,x3)) );
-                        m_kseeds[c].push_back( float(m_chvec[c].at<double>(y4,x4)) );
+                        seedsC[c].push_back( float(channels[c].at<double>(y2,x2)) );
+                        seedsC[c].push_back( float(channels[c].at<double>(y3,x3)) );
+                        seedsC[c].push_back( float(channels[c].at<double>(y4,x4)) );
                         break;
 
                       default:
@@ -1748,30 +1749,30 @@ inline void SuperpixelSLIC_NORAImpl::SuperpixelSplit()
     }
     else
     {
-        m_kseedsx.clear();
-        m_kseedsy.clear();
-        m_kseedsx.resize( m_numlabels, 0 );
-        m_kseedsy.resize( m_numlabels, 0 );
-        for( int c = 0; c < m_nr_channels; c++ )
+        seedsX.clear();
+        seedsY.clear();
+        seedsX.resize( kSuperpixels, 0 );
+        seedsY.resize( kSuperpixels, 0 );
+        for( int c = 0; c < channelsNo; c++ )
         {
-          m_kseeds[c].clear();
-          m_kseeds[c].resize( m_numlabels, 0 );
+          seedsC[c].clear();
+          seedsC[c].resize( kSuperpixels, 0 );
         }
 
-        for( int k = 0; k < m_numlabels; k++ )
+        for( int k = 0; k < kSuperpixels; k++ )
         {
-            m_kseedsx[k] = msc.sigmax[k] / msc.clustersize[k];
-            m_kseedsy[k] = msc.sigmay[k] / msc.clustersize[k];
-            for( int c = 0; c < m_nr_channels; c++ )
-                m_kseeds[c][k] = msc.sigma[c][k] / msc.clustersize[k];
+            seedsX[k] = msc.sigmax[k] / msc.clustersize[k];
+            seedsY[k] = msc.sigmay[k] / msc.clustersize[k];
+            for( int c = 0; c < channelsNo; c++ )
+                seedsC[c][k] = msc.sigma[c][k] / msc.clustersize[k];
         }
     }
 
-  m_klabels.release();
-  m_klabels = klabels.clone();
+  labels.release();
+  labels = klabels.clone();
 
   // re-update amount of labels
-  m_numlabels = (int)m_kseeds[0].size();
+  kSuperpixels = (int)seedsC[0].size();
 
 }
 
