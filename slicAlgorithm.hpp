@@ -111,6 +111,7 @@ public:
     the range [0, getNumberOfSuperpixels()].
      */
     CV_WRAP virtual void getLabels( OutputArray labels_out ) const = 0;
+    CV_WRAP virtual void getUniforms( OutputArray uniforms ) const = 0;
 
     /** @brief Returns the mask of the superpixel segmentation stored in SuperpixelSlic object.
 

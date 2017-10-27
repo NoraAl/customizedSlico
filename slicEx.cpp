@@ -32,8 +32,8 @@ int main(int argc, char **argv)
     String imgFile = cmd.get<String>("image");
     String vidFile = cmd.get<String>("video");
     int algorithmy = cmd.get<int>("algorithm");
-    int region_size = 50;
-    int ruler = 30;
+    int region_size = 10;
+    int ruler = 10;
     int min_element_size = region_size;
     int num_iterations = 3;
     bool noImage = imgFile.empty();
@@ -79,7 +79,7 @@ int main(int argc, char **argv)
     // createTrackbar("Iterations", window_name, &num_iterations, 12, 0);
 
     Mat result, mask;
-    int display_mode = 0;
+    int display_mode = 2;
 
     for (;;)
     {
@@ -121,6 +121,7 @@ int main(int argc, char **argv)
         {
         case 0: //superpixel contours
             imshow(window_name, result);
+            
             break;
         case 1: //mask
             imshow(window_name, mask);
@@ -131,11 +132,17 @@ int main(int argc, char **argv)
             // guarantee that 2 neighboring superpixels have different colors.
             // retrieve the segmentation result
             Mat labels;
+            cout<<result<<endl;
+            slic->getUniforms(labels);
             slic->getLabels(labels);
+            //
+            cout<<labels<<endl;
             const int num_label_bits = 2;
             labels &= (1 << num_label_bits) - 1;
             labels *= 1 << (16 - num_label_bits);
+            imshow("r", result);
             imshow(window_name, labels);
+            waitKey(0);
             break;
         }
         }
