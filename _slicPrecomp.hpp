@@ -38,9 +38,9 @@
 #define MYPRECOMP_HPP_
 
 #include <opencv2/opencv.hpp>
-#include  <opencv2/core/internal.hpp>
-
-#include "slicAlgorithm.hpp"
+//#include  <opencv2/core/internal.hpp>
+#include "_private.hpp"
+#include "_slicAlgorithm.hpp"
 
 #include <algorithm>
 #include <map>

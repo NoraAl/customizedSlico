@@ -1,64 +1,4 @@
-/*********************************************************************
- * Software License Agreement (BSD License)
- *
- * Slic, Slico Copyright (c) 2013
- * Radhakrishna Achanta
- * email : Radhakrishna [dot] Achanta [at] epfl [dot] ch
- * web : http://ivrl.epfl.ch/people/achanta
- *
- * MSlic Copyright (c) 2016, 2017
- * Yong-Jin Liu
- * email : liuyongjin [at] tsinghua [dot] edu [dot] cn
- * web : http://47.89.51.189/liuyj
- *
- *  Redistribution and use in source and binary forms, with or without
- *  modification, are permitted provided that the following conditions
- *  are met:
- *
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *   * Redistributions in binary form must reproduce the above
- *     copyright notice, this list of conditions and the following
- *     disclaimer in the documentation and/or other materials provided
- *     with the distribution.
- *   * Neither the name of the copyright holders nor the names of its
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
- *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
- *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
- *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- *  POSSIBILITY OF SUCH DAMAGE.
- *********************************************************************/
-
-/*
- "Slic Superpixels Compared to State-of-the-art Superpixel Methods"
- Radhakrishna Achanta, Appu Shaji, Kevin Smith, Aurelien Lucchi, Pascal Fua,
- and Sabine Susstrunk, IEEE TPAMI, Volume 34, Issue 11, Pages 2274-2282,
- November 2012.
-
- "Slic Superpixels" Radhakrishna Achanta, Appu Shaji, Kevin Smith,
- Aurelien Lucchi, Pascal Fua, and Sabine Süsstrunk, EPFL Technical
- Report no. 149300, June 2010.
-
- "Intrinsic Manifold Slic: A Simple and Efficient Method for Computing
- Content-Sensitive Superpixels"
- Yong-Jin Liu, Cheng-Chi Yu, Min-Jing Yu, Ying He,
- IEEE Transactions on Pattern Analysis and Machine Intelligence,
- March 2017, Issue 99.
-
- OpenCV port by: Cristian Balint <cristian dot balint at gmail dot com>
- */
-
-#include "slicPrecomp.hpp"
+#include "_slicPrecomp.hpp"
 
 using namespace std;
 
@@ -302,41 +242,55 @@ void SlicImpl::getLabels(OutputArray labels_out) const
 
 void SlicImpl::getUniforms(OutputArray uniformsOut) const
 {
-  cout<<endl;
-  Mat M(heightImg, widthImg, CV_8UC3, Scalar(0,0,0));
-
-  for (int i = 0; i < seedsX.size(); i++)
-  {
-    cout << (int)i << "\t";
-  }
-  cout<<endl;
-
-  for (int i = 0; i < seedsX.size(); i++)
-  {
-    uchar n = saturate_cast<uchar>(seedsX[i]);
-    cout << (int)n << "\t";
-  }
   cout << endl;
+  Mat M(heightImg, widthImg, CV_8UC3, Scalar(0, 0, 0));
 
-  for (int i = 0; i < seedsY.size(); i++)
+  for (int i = 0; i < heightImg; i++)
   {
-    uchar n = saturate_cast<uchar>(seedsY[i]);
-    cout << (int)n << "\t";
-  }
-  cout << endl;
-
-  for (int k = 0; k < 3; k++)
-  {
-    for (int i = 0; i < seedsC[0].size(); i++)
+    for (int j = 0; j < widthImg; j++)
     {
-      uchar n = saturate_cast<uchar>(seedsC[k][i]);
-      cout << (int)n << "\t";
-    }
-    cout << endl;
-  }
-  cout<<endl;
+      int n = seedsC[0].at(labels.at<int>(i, j));
+      int n1 = seedsC[1].at(labels.at<int>(i, j));
+      int n2 = seedsC[2].at(labels.at<int>(i, j));
 
-  uniformsOut.assign(uniforms);
+      M.at<Vec3b>(i, j)[0] = saturate_cast<uchar>(n);
+      M.at<Vec3b>(i, j)[1] = saturate_cast<uchar>(n1);
+      M.at<Vec3b>(i, j)[2] = saturate_cast<uchar>(n2);
+    }
+  }
+
+  // for (int i = 0; i < seedsX.size(); i++)
+  // {
+  //   cout << (int)i << "\t";
+  // }
+  // cout<<endl;
+
+  // for (int i = 0; i < seedsX.size(); i++)
+  // {
+  //   uchar n = saturate_cast<uchar>(seedsX[i]);
+  //   cout << (int)n << "\t";
+  // }
+  // cout << endl;
+
+  // for (int i = 0; i < seedsY.size(); i++)
+  // {
+  //   uchar n = saturate_cast<uchar>(seedsY[i]);
+  //   cout << (int)n << "\t";
+  // }
+  // cout << endl;
+
+  // for (int k = 0; k < 3; k++)
+  // {
+  //   for (int i = 0; i < seedsC[0].size(); i++)
+  //   {
+  //     uchar n = saturate_cast<uchar>(seedsC[k][i]);
+  //     cout << (int)n << "\t";
+  //   }
+  //   cout << endl;
+  // }
+  // cout<<endl;
+
+  uniformsOut.assign(M);
 }
 
 void SlicImpl::getLabelContourMask(OutputArray _mask, bool _thick_line) const
@@ -868,7 +822,7 @@ inline void SlicImpl::GetChSeedsK()
 
 struct SeedNormInvoker : ParallelLoopBody
 {
-  SeedNormInvoker(vector<vector<float > > *_kseeds, vector<vector<float> > *_sigma,
+  SeedNormInvoker(vector<vector<float> > *_kseeds, vector<vector<float> > *_sigma,
                   vector<int> *_clustersize, vector<float> *_sigmax, vector<float> *_sigmay,
                   vector<float> *_kseedsx, vector<float> *_kseedsy, int _nr_channels)
   {
@@ -886,8 +840,19 @@ struct SeedNormInvoker : ParallelLoopBody
   {
     for (int k = range.start; k < range.end; ++k)
     {
-      if (clustersize->at(k) <= 0)
+      // if (clustersize->at(k) <= 0)
+      //   clustersize->at(k) = 1;
+
+      if (clustersize->at(k) < 0){
+        cout<<"error"<<endl;
+        exit(1);
+      }
+
+      if (clustersize->at(k) == 0){
         clustersize->at(k) = 1;
+        //exit(1);
+      }
+        
 
       for (int b = 0; b < nr_channels; b++)
         kseeds->at(b)[k] = sigma->at(b)[k] / float(clustersize->at(k));
@@ -1331,7 +1296,7 @@ struct SlicGrowInvoker : ParallelLoopBody
         //dist += distxy / xywt;
 
         //this would be more exact but expensive
-        dist = sqrt(dist) + sqrt(distxy/xywt);
+        dist = sqrt(dist) + sqrt(distxy / xywt);
 
         if (dist < distvec->at<float>(y, x))
         {
@@ -1343,7 +1308,7 @@ struct SlicGrowInvoker : ParallelLoopBody
   }
 
   Mat *klabels;
-  vector<vector<float> >  *kseeds;
+  vector<vector<float> > *kseeds;
   float xywt;
   vector<Mat> *chvec;
   Mat *distvec;

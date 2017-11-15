@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <opencv2/opencv.hpp>
-#include "slicAlgorithm.hpp"
+#include "_slicAlgorithm.hpp"
 
 using namespace cv;
 using namespace cv::slicNora;
@@ -32,7 +32,7 @@ int main(int argc, char **argv)
     String imgFile = cmd.get<String>("image");
     String vidFile = cmd.get<String>("video");
     int algorithmy = cmd.get<int>("algorithm");
-    int region_size = 10;
+    int region_size = 30;
     int ruler = 10;
     int min_element_size = region_size;
     int num_iterations = 3;
@@ -93,19 +93,21 @@ int main(int argc, char **argv)
             break;
 
         result = frame;
-        Mat converted;
+        Mat converted, blurred;
+        medianBlur(result, blurred , 5);
+       
         //cvtColor(frame, converted, COLOR_BGR2HSV);/*HSV*/
         //cvtColor(frame, converted, COLOR_BGR2Lab);/*LAB*/
-        cvtColor(frame, converted, COLOR_BGR2YUV );
+        //cvtColor(frame, converted, COLOR_BGR2YUV );
         
         double t = (double)getTickCount();
 
         Ptr<SuperpixelSlic> slic = 
-        createSuperpixelSlic(converted, algorithmy + Slic, region_size, float(ruler));
+        createSuperpixelSlic(blurred, algorithmy + Slic, region_size, float(ruler));
         
         slic->iterate(num_iterations);
-        if (min_element_size > 0)
-            slic->enforceLabelConnectivity(min_element_size);
+        // if (min_element_size > 0)
+        //     slic->enforceLabelConnectivity(min_element_size);
 
         t = ((double)getTickCount() - t) / getTickFrequency();
         cout << "Slic" << (algorithmy ? 'O' : ' ')
@@ -131,18 +133,42 @@ int main(int argc, char **argv)
             // use the last x bit to determine the color. Note that this does not
             // guarantee that 2 neighboring superpixels have different colors.
             // retrieve the segmentation result
-            Mat labels;
-            cout<<result<<endl;
-            slic->getUniforms(labels);
+            Mat labels, uniforms;
+            // for(int i = 0; i<result.rows; i++){
+            //     for(int j = 0; j<result.cols; j++){
+            //         int l = result.at<Vec3b>(i,j)[0]?1:0;
+            //         cout<<l<<", ";
+            //         l = result.at<Vec3b>(i,j)[1]?1:0;
+            //         cout<<l<<", ";
+            //         l = result.at<Vec3b>(i,j)[2]?1:0;
+            //         cout<<l<<"\t\t";
+            //     }
+            //     cout<<endl;
+            // }
+            slic->getUniforms(uniforms);
             slic->getLabels(labels);
             //
-            cout<<labels<<endl;
+            //cout<<labels<<endl;
+
+            // for(int i = 0; i<result.rows; i++){
+            //     for(int j = 0; j<result.cols; j++){
+            //         int l = labels.at<int>(i,j);
+            //         cout<<"   ";
+                    
+            //         cout<<"   ";
+                    
+            //         cout<<l<<"\t\t";
+            //     }
+            //     cout<<endl;
+            // }
+
             const int num_label_bits = 2;
             labels &= (1 << num_label_bits) - 1;
             labels *= 1 << (16 - num_label_bits);
             imshow("r", result);
-            imshow(window_name, labels);
-            waitKey(0);
+            imshow("uniform", uniforms);
+            imshow("blurred", blurred);
+            
             break;
         }
         }
