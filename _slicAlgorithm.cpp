@@ -23,6 +23,8 @@ public:
   // get image with labels
   virtual void getLabels(OutputArray labels_out) const;
   virtual void getUniforms(OutputArray uniforms) const;
+  virtual void saveCentroids(char* filename, int label) const;
+  void Metadata(char* filename) const;
 
   // get mask image with contour
   virtual void getLabelContourMask(OutputArray image, bool thick_line = true) const;
@@ -101,6 +103,9 @@ private:
 
   // fetch seeds
   inline void GetChSeedsS();
+
+  // set K superpixels SlicK
+  inline void SetKSuperpixels();
 
   // fetch seeds
   inline void GetChSeedsK();
@@ -195,7 +200,9 @@ void SlicImpl::initialize()
   if (perturbseeds)
     DetectChEdges(edgemag);
 
-  if (m_algorithm == Slico)
+  if (m_algorithm == SlicK)
+    SetKSuperpixels();
+  else if (m_algorithm == Slico)
     GetChSeedsK();
   else if ((m_algorithm == Slic) ||
            (m_algorithm == MSlic))
@@ -242,7 +249,6 @@ void SlicImpl::getLabels(OutputArray labels_out) const
 
 void SlicImpl::getUniforms(OutputArray uniformsOut) const
 {
-  cout << endl;
   Mat M(heightImg, widthImg, CV_8UC3, Scalar(0, 0, 0));
 
   for (int i = 0; i < heightImg; i++)
@@ -258,39 +264,90 @@ void SlicImpl::getUniforms(OutputArray uniformsOut) const
       M.at<Vec3b>(i, j)[2] = saturate_cast<uchar>(n2);
     }
   }
-
-  // for (int i = 0; i < seedsX.size(); i++)
-  // {
-  //   cout << (int)i << "\t";
-  // }
-  // cout<<endl;
-
-  // for (int i = 0; i < seedsX.size(); i++)
-  // {
-  //   uchar n = saturate_cast<uchar>(seedsX[i]);
-  //   cout << (int)n << "\t";
-  // }
-  // cout << endl;
-
-  // for (int i = 0; i < seedsY.size(); i++)
-  // {
-  //   uchar n = saturate_cast<uchar>(seedsY[i]);
-  //   cout << (int)n << "\t";
-  // }
-  // cout << endl;
-
-  // for (int k = 0; k < 3; k++)
-  // {
-  //   for (int i = 0; i < seedsC[0].size(); i++)
-  //   {
-  //     uchar n = saturate_cast<uchar>(seedsC[k][i]);
-  //     cout << (int)n << "\t";
-  //   }
-  //   cout << endl;
-  // }
-  // cout<<endl;
-
   uniformsOut.assign(M);
+}
+
+void header(char* filename){
+  // if file doesn't exist, create new onw and add headers
+  struct stat buffer;   
+  if (stat (filename, &buffer) != 0) {
+    ofstream file(filename);
+    if (file.is_open()){
+      file << "a,b,c,d";
+      file << endl;
+      file.close();
+    } else {
+      // error: file opening error
+    }
+  }
+}
+
+void SlicImpl::Metadata(char* filename) const {
+  filename = "../data/__metadata.csv";
+  struct stat buffer;
+  if (stat(filename, &buffer) == 0) { // file exists
+    ofstream file(filename, ofstream::out | ofstream::app);
+    if (file.is_open())
+    {
+      file << "file,"<< seedsX.size()<<","<<seedsY.size()<<","<<seedsC[0].size()<<","<<seedsC[1].size()<<","<<seedsC[2].size()<< endl;
+      file.close();
+    }
+    return;
+  }
+  ofstream file(filename);
+  if (file.is_open()){
+    file << "file,x superpixels,y superpixels,color1,color2,color3"<<endl;
+    file << "file,"<< seedsX.size()<<","<<seedsY.size()<<","<<seedsC[0].size()<<","<<seedsC[1].size()<<","<<seedsC[2].size()<< endl;
+    file.close();
+  }
+}
+
+
+void SlicImpl::saveCentroids(char* filename, int label) const
+{
+  // if files don't exist, add headers
+  Metadata(filename);
+  // header("../data/_x.csv");
+  // header("../data/_y.csv");
+  // header("../data/_color1.csv");
+  // header("../data/_color2.csv");
+  // header("../data/_color3.csv");
+  ofstream labelsfile("../data/_labels.csv", ofstream::out | ofstream::app);
+  labelsfile  << label <<"," << endl;
+  labelsfile.close();
+
+  ofstream xfile("../data/_x.csv", ofstream::out | ofstream::app);
+  ofstream yfile("../data/_y.csv", ofstream::out | ofstream::app);
+  ofstream color1file("../data/_color1.csv", ofstream::out | ofstream::app);
+  ofstream color2file("../data/_color2.csv", ofstream::out | ofstream::app);
+  ofstream color3file("../data/_color3.csv", ofstream::out | ofstream::app);
+  
+  // else append
+  if (xfile.is_open()&&color1file.is_open()) 
+  {
+    for (int i = 0; i < seedsC[0].size(); i++)
+    {
+      xfile       << seedsX.at(i) << ",";
+      yfile       << seedsY.at(i) << ",";
+      color1file  << seedsC[0].at(i) << ",";
+      color2file  << seedsC[1].at(i) << ",";
+      color3file  << seedsC[2].at(i) << ",";
+    }
+    xfile       << endl;
+    yfile       << endl;
+    color1file  << endl;
+    color2file  << endl;
+    color3file  << endl;
+
+    xfile.close();
+    yfile.close();
+    color1file.close();
+    color2file.close();
+    color3file.close();
+  } else {
+    // error: file opening error
+  }
+  
 }
 
 void SlicImpl::getLabelContourMask(OutputArray _mask, bool _thick_line) const
@@ -843,16 +900,17 @@ struct SeedNormInvoker : ParallelLoopBody
       // if (clustersize->at(k) <= 0)
       //   clustersize->at(k) = 1;
 
-      if (clustersize->at(k) < 0){
-        cout<<"error"<<endl;
+      if (clustersize->at(k) < 0)
+      {
+        cout << "error" << endl;
         exit(1);
       }
 
-      if (clustersize->at(k) == 0){
+      if (clustersize->at(k) == 0)
+      {
         clustersize->at(k) = 1;
         //exit(1);
       }
-        
 
       for (int b = 0; b < nr_channels; b++)
         kseeds->at(b)[k] = sigma->at(b)[k] / float(clustersize->at(k));
@@ -1297,6 +1355,7 @@ struct SlicGrowInvoker : ParallelLoopBody
 
         //this would be more exact but expensive
         dist = sqrt(dist) + sqrt(distxy / xywt);
+        //dist = sqrt(dist+(distxy / xywt));
 
         if (dist < distvec->at<float>(y, x))
         {
@@ -1760,6 +1819,75 @@ inline void SlicImpl::SuperpixelSplit()
 
   // re-update amount of labels
   kSuperpixels = (int)seedsC[0].size();
+}
+
+inline void SlicImpl::SetKSuperpixels()
+{
+  int xoff = regionLength / 2;
+  int yoff = regionLength / 2;
+  int n = 0;
+  int r = 0;
+  for (int y = 0; y < heightImg; y++)
+  {
+    int Y = y * regionLength + yoff;
+    if (Y > heightImg - 1)
+      continue;
+    for (int x = 0; x < widthImg; x++)
+    {
+      // hex grid
+      int X = x * regionLength + (xoff << (r & 0x1));
+      if (X > widthImg - 1)
+        continue;
+
+      switch (channels[0].depth())
+      {
+      case CV_8U:
+        for (int b = 0; b < channelsNo; b++)
+          seedsC[b].push_back(channels[b].at<uchar>(Y, X));
+        break;
+
+      case CV_8S:
+        for (int b = 0; b < channelsNo; b++)
+          seedsC[b].push_back(channels[b].at<char>(Y, X));
+        break;
+
+      case CV_16U:
+        for (int b = 0; b < channelsNo; b++)
+          seedsC[b].push_back(channels[b].at<ushort>(Y, X));
+        break;
+
+      case CV_16S:
+        for (int b = 0; b < channelsNo; b++)
+          seedsC[b].push_back(channels[b].at<short>(Y, X));
+        break;
+
+      case CV_32S:
+        for (int b = 0; b < channelsNo; b++)
+          seedsC[b].push_back((float)channels[b].at<int>(Y, X));
+        break;
+
+      case CV_32F:
+        for (int b = 0; b < channelsNo; b++)
+          seedsC[b].push_back(channels[b].at<float>(Y, X));
+        break;
+
+      case CV_64F:
+        for (int b = 0; b < channelsNo; b++)
+          seedsC[b].push_back((float)channels[b].at<double>(Y, X));
+        break;
+
+      default:
+        CV_Error(Error::StsInternal, "Invalid matrix depth");
+        break;
+      }
+
+      seedsX.push_back((float)X);
+      seedsY.push_back((float)Y);
+
+      n++;
+    }
+    r++;
+  }
 }
 
 } // namespace slicNora

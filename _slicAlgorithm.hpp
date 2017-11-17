@@ -52,6 +52,9 @@
 #ifdef __cplusplus
 
 #include <opencv2/core.hpp>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 namespace cv
 {
@@ -61,7 +64,7 @@ namespace slicNora
 //! @addtogroup Slic_superpixel
 //! @{
 
-    enum Slic_ENUM { Slic = 100, Slico = 101, MSlic = 102 };
+    enum Slic_ENUM { Slic = 100, Slico = 101, MSlic = 102, SlicK=103 };
 
 /** @brief Class implementing the Slic (Simple Linear Iterative Clustering) superpixels
 algorithm described in @cite Achanta2012.
@@ -112,6 +115,7 @@ public:
      */
     CV_WRAP virtual void getLabels( OutputArray labels_out ) const = 0;
     CV_WRAP virtual void getUniforms( OutputArray uniforms ) const = 0;
+    CV_WRAP virtual void saveCentroids(char* filename, int label) const = 0;
 
     /** @brief Returns the mask of the superpixel segmentation stored in SuperpixelSlic object.
 

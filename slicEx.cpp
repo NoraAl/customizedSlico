@@ -15,6 +15,7 @@ static const char *keys =
     "{c camera    |0| camera id}"
     "{i image     | | image file}"
     "{v video     | | video file}"
+    "{s save     | | output folder}"
     "{a algorithm |1| Slic(0),Slico(1),MSlic(2)}";
 
 int main(int argc, char **argv)
@@ -31,6 +32,7 @@ int main(int argc, char **argv)
     int capture = cmd.get<int>("camera");
     String imgFile = cmd.get<String>("image");
     String vidFile = cmd.get<String>("video");
+    String outputDir = cmd.get<String>("save");
     int algorithmy = cmd.get<int>("algorithm");
     int region_size = 30;
     int ruler = 10;
@@ -59,7 +61,7 @@ int main(int argc, char **argv)
             return -1;
         }
     }
-
+    // image
     else
     {
         input_image = imread(imgFile);
@@ -96,9 +98,9 @@ int main(int argc, char **argv)
         Mat converted, blurred;
         medianBlur(result, blurred , 5);
        
-        //cvtColor(frame, converted, COLOR_BGR2HSV);/*HSV*/
-        //cvtColor(frame, converted, COLOR_BGR2Lab);/*LAB*/
-        //cvtColor(frame, converted, COLOR_BGR2YUV );
+        //cvtColor(blurred, converted, COLOR_BGR2HSV);/*HSV*/
+        //cvtColor(blurred, converted, COLOR_BGR2Lab);/*LAB*/
+        //cvtColor(blurred, converted, COLOR_BGR2YUV );
         
         double t = (double)getTickCount();
 
@@ -147,21 +149,8 @@ int main(int argc, char **argv)
             // }
             slic->getUniforms(uniforms);
             slic->getLabels(labels);
+            slic->saveCentroids("hi",1);
             //
-            //cout<<labels<<endl;
-
-            // for(int i = 0; i<result.rows; i++){
-            //     for(int j = 0; j<result.cols; j++){
-            //         int l = labels.at<int>(i,j);
-            //         cout<<"   ";
-                    
-            //         cout<<"   ";
-                    
-            //         cout<<l<<"\t\t";
-            //     }
-            //     cout<<endl;
-            // }
-
             const int num_label_bits = 2;
             labels &= (1 << num_label_bits) - 1;
             labels *= 1 << (16 - num_label_bits);
@@ -172,13 +161,18 @@ int main(int argc, char **argv)
             break;
         }
         }
+        
 
         int c = waitKey(1) & 0xff;
-        if (c == 'q' || c == 'Q' || c == 27)
+        
+        if (c == 'q' || c == 'Q' || c == 27 || !noImage)
             break;
         else if (c == ' ')
             display_mode = (display_mode + 1) % 3;
+        
+        
     }
 
+    waitKey(0);
     return 0;
 }
