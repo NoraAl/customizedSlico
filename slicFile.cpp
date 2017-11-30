@@ -57,8 +57,8 @@ int main(int argc, char **argv)
     string imagesFile = cmd.get<String>("file");
     
     int algorithmy = cmd.get<int>("algorithm");
-    int region_size = 30;
-    int ruler = 10;
+    int region_size = 8;
+    int ruler = 8;
     int min_element_size = region_size;
     int num_iterations = 3;
     bool useCam = imagesFile.empty();
@@ -66,21 +66,19 @@ int main(int argc, char **argv)
     VideoCapture cap;
     Mat input_image;
     int label;
+    
 
     if (useCam)
     {
-        if (!cap.open(capture))
-        {
-            cout << "Could not initialize capturing..." << capture << "\n";
-            return -1;
-        }
-        cout << "opening cam"<<endl;
+        cout << "this file doesn't open cam."<<endl;
+        return 0;
     }
     // Mat of images
     else
     {
         try
         {
+            // array of files names
             readCsv(imagesFile);
         }
         catch (cv::Exception &e)
@@ -97,19 +95,15 @@ int main(int argc, char **argv)
     for (int i = 0 ; i < files.size(); i++)
     {
         Mat frame;
-        if (useCam)
-            cap >> frame;
-            
-        else {
-            label = files[i].label;
-            input_image = imread(files[i].filename);
-            cout << "reading frame file"<<endl;
-            input_image.copyTo(frame);
-        }
-            
+        string resultName = "../results/image" + to_string(i)+".jpg";
 
-        if (frame.empty())
-            break;
+        
+        
+        label = files[i].label;
+        input_image = imread(files[i].filename);
+        cout << "reading frame file"<<endl;
+        input_image.copyTo(frame);
+        
 
         
         Mat converted, blurred;
@@ -126,10 +120,11 @@ int main(int argc, char **argv)
 
         slic->getUniforms(uniforms);
         slic->getLabels(labels);
-        slic->saveCentroids("hi", label);
+        slic->saveCentroids(label);
         
         imshow("uniform", uniforms);
-        imshow("blurred", blurred);
+        imwrite(resultName, uniforms );
+        //imshow("blurred", blurred);
 
         int c = waitKey(1) & 0xff;
         

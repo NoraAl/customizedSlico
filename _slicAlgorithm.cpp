@@ -23,8 +23,8 @@ public:
   // get image with labels
   virtual void getLabels(OutputArray labels_out) const;
   virtual void getUniforms(OutputArray uniforms) const;
-  virtual void saveCentroids(char* filename, int label) const;
-  void Metadata(char* filename) const;
+  virtual void saveCentroids(int label) const;
+  void Metadata() const;
 
   // get mask image with contour
   virtual void getLabelContourMask(OutputArray image, bool thick_line = true) const;
@@ -282,31 +282,21 @@ void header(char* filename){
   }
 }
 
-void SlicImpl::Metadata(char* filename) const {
-  filename = "../data/__metadata.csv";
-  struct stat buffer;
-  if (stat(filename, &buffer) == 0) { // file exists
-    ofstream file(filename, ofstream::out | ofstream::app);
-    if (file.is_open())
-    {
-      file << "file,"<< seedsX.size()<<","<<seedsY.size()<<","<<seedsC[0].size()<<","<<seedsC[1].size()<<","<<seedsC[2].size()<< endl;
-      file.close();
-    }
-    return;
-  }
-  ofstream file(filename);
-  if (file.is_open()){
-    file << "file,x superpixels,y superpixels,color1,color2,color3"<<endl;
-    file << "file,"<< seedsX.size()<<","<<seedsY.size()<<","<<seedsC[0].size()<<","<<seedsC[1].size()<<","<<seedsC[2].size()<< endl;
+void SlicImpl::Metadata() const {
+  string filename = "../data/__metadata.csv";
+  ofstream file(filename, ofstream::out | ofstream::app);
+  if (file.is_open())
+  {
+    file << seedsX.size()<<","<<seedsY.size()<<","<<seedsC[0].size()<<","<<seedsC[1].size()<<","<<seedsC[2].size()<< endl;
     file.close();
   }
 }
 
 
-void SlicImpl::saveCentroids(char* filename, int label) const
+void SlicImpl::saveCentroids( int label) const
 {
   // if files don't exist, add headers
-  Metadata(filename);
+  Metadata();
   // header("../data/_x.csv");
   // header("../data/_y.csv");
   // header("../data/_color1.csv");

@@ -149,7 +149,7 @@ int main(int argc, char **argv)
             // }
             slic->getUniforms(uniforms);
             slic->getLabels(labels);
-            slic->saveCentroids("hi",1);
+            slic->saveCentroids(1);
             //
             const int num_label_bits = 2;
             labels &= (1 << num_label_bits) - 1;
